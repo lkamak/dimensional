@@ -1,0 +1,52 @@
+{
+  "issue": "LUC-21",
+  "pr": "https://github.com/lkamak/dimensional/pull/2",
+  "commit": "ea2cb70",
+  "results": [
+    {
+      "id": "AC1",
+      "status": "PASS",
+      "detail": "Draw a plan opens blank canvas with draw tools, no image upload"
+    },
+    {
+      "id": "AC2",
+      "status": "PASS",
+      "detail": "Drew wall(s)=1 and room(s)=1 on canvas"
+    },
+    {
+      "id": "AC3",
+      "status": "PASS",
+      "detail": "Selected and deleted geometry (2 → 1)"
+    },
+    {
+      "id": "AC4",
+      "status": "PASS",
+      "detail": "Scale set (ppi=4.79); furniture items=1"
+    },
+    {
+      "id": "AC5",
+      "status": "PASS",
+      "detail": "Reload kept drawn-only plan: elements=1, items=1, ppi=4.791666666666665"
+    },
+    {
+      "id": "AC6",
+      "status": "PASS",
+      "detail": "Upload floor plan still loads image and shows calibrate tools"
+    }
+  ],
+  "allPassed": true,
+  "artifacts": {
+    "video": "qa/e2e-luc-21/artifacts/luc-21-e2e.webm",
+    "gif": "qa/e2e-luc-21/artifacts/luc-21-e2e.gif",
+    "screenshots": [
+      "qa/e2e-luc-21/artifacts/01-empty-state.png",
+      "qa/e2e-luc-21/artifacts/02-blank-plan.png",
+      "qa/e2e-luc-21/artifacts/03-drawn-geometry.png",
+      "qa/e2e-luc-21/artifacts/04-after-delete.png",
+      "qa/e2e-luc-21/artifacts/05-furniture-placed.png",
+      "qa/e2e-luc-21/artifacts/06-after-reload.png",
+      "qa/e2e-luc-21/artifacts/07-reset-empty.png",
+      "qa/e2e-luc-21/artifacts/08-upload-path.png"
+    ]
+  }
+}
