@@ -1,0 +1,78 @@
+{
+  "verdict": "REJECT",
+  "appUrl": "http://127.0.0.1:4173/",
+  "generatedAt": "2026-07-08T20:50:53.146Z",
+  "screenshots": {
+    "savedLayoutA": "01-layout-a-saved.png",
+    "libraryAfterSaveAsB": "02-save-as-b-library.png",
+    "unsavedPrompt": "03-unsaved-changes-prompt.png",
+    "reopenedLayoutB": "04-reopened-layout-b.png",
+    "emptyStateOpenDisabled": "05-empty-state-open-disabled.png",
+    "quotaError": "06-quota-error.png"
+  },
+  "video": "pr3-e2e-video.webm",
+  "results": {
+    "save_named_plan_with_furniture": {
+      "status": "pass",
+      "details": "Saved Layout A through the UI and verified localStorage entry includes image data, scale, imperial units, and the renamed sofa."
+    },
+    "multiple_named_saves_coexist": {
+      "status": "fail",
+      "details": "After using Save as on active Layout A with name Layout B, library names were: [\"Layout B\"]."
+    },
+    "switching_handles_unsaved_changes": {
+      "status": "pass",
+      "details": "Clicking Open with a dirty active plan displayed the Unsaved changes dialog with Cancel, Discard, and Save & continue actions."
+    },
+    "open_saved_plan_restores_full_state": {
+      "status": "fail",
+      "details": "Opened Layout B from a loaded plan and restored image/scale/units/furniture, but Open was disabled on the empty state while saved plans still existed."
+    },
+    "storage_failures_surface_clear_error": {
+      "status": "pass",
+      "details": "Simulated QuotaExceededError surfaced alert text: \"Storage is full. Remove older saved plans or use a smaller floor plan image.\\n×\"."
+    }
+  },
+  "observations": {
+    "afterLayoutA": [
+      {
+        "id": "e6010233-9681-4976-a4d4-9320d567938e",
+        "name": "Layout A",
+        "updatedAt": "2026-07-08T20:50:50.406Z",
+        "itemCount": 1,
+        "hasImage": true,
+        "hasScale": true,
+        "unitSystem": "imperial",
+        "labels": [
+          "Blue sofa"
+        ]
+      }
+    ],
+    "afterLayoutBSaveAs": [
+      {
+        "id": "e6010233-9681-4976-a4d4-9320d567938e",
+        "name": "Layout B",
+        "updatedAt": "2026-07-08T20:50:50.975Z",
+        "itemCount": 2,
+        "hasImage": true,
+        "hasScale": true,
+        "unitSystem": "imperial",
+        "labels": [
+          "Blue sofa",
+          "TV console"
+        ]
+      }
+    ],
+    "afterOpenLayoutB": {
+      "activePlanName": "Layout B",
+      "itemCount": 2,
+      "hasImage": true,
+      "hasScale": true,
+      "unitSystem": "imperial",
+      "labels": [
+        "Blue sofa",
+        "TV console"
+      ]
+    }
+  }
+}
