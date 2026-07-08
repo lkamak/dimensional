@@ -22,6 +22,7 @@ import type {
   CatalogPreset,
   FurnitureItem,
   PlanState,
+  SessionSnapshot,
   StorageError,
   ToolMode,
   UnitSystem,
@@ -37,6 +38,18 @@ function createId(): string {
 function snapRotation(deg: number): number {
   const snapped = Math.round(deg / 15) * 15;
   return ((snapped % 360) + 360) % 360;
+}
+
+function sessionSnapshotsEqual(
+  a: SessionSnapshot,
+  b: SessionSnapshot,
+): boolean {
+  return (
+    a.activePlanId === b.activePlanId &&
+    a.activePlanName === b.activePlanName &&
+    planStatesEqual(a.plan, b.plan) &&
+    planStatesEqual(a.baselineState, b.baselineState)
+  );
 }
 
 export default function App() {
@@ -68,30 +81,43 @@ export default function App() {
   const [pendingAction, setPendingAction] = useState<"open" | null>(null);
   const [storageError, setStorageError] = useState<StorageError | null>(null);
   const sessionHydrated = useRef(false);
-  const needsLegacyMigration = useRef(initial.needsLegacyMigration);
+  const legacyMigrationSnapshot = useRef<SessionSnapshot | null>(
+    initial.needsLegacyMigration
+      ? {
+          plan: initial.plan,
+          activePlanId: initial.activePlanId,
+          activePlanName: initial.activePlanName,
+          baselineState: initial.baselineState,
+        }
+      : null,
+  );
 
   const isDirty = !planStatesEqual(plan, baselineState);
 
   useEffect(() => {
     if (!sessionHydrated.current) {
       sessionHydrated.current = true;
-      if (!needsLegacyMigration.current) {
+      if (!legacyMigrationSnapshot.current) {
         return;
       }
     }
-    const result = saveSessionSnapshot({
+    const snapshot = {
       plan,
       activePlanId,
       activePlanName,
       baselineState,
-    });
+    };
+    const result = saveSessionSnapshot(snapshot);
     if (!result.ok) {
       setStorageError(result.error);
       return;
     }
-    if (needsLegacyMigration.current) {
+    if (
+      legacyMigrationSnapshot.current &&
+      sessionSnapshotsEqual(snapshot, legacyMigrationSnapshot.current)
+    ) {
       clearLegacyPlanState();
-      needsLegacyMigration.current = false;
+      legacyMigrationSnapshot.current = null;
     }
   }, [plan, activePlanId, activePlanName, baselineState]);
 
