@@ -7,6 +7,7 @@ import { EmptyState } from "./components/EmptyState";
 import { PlanCanvas } from "./components/PlanCanvas";
 import { PlanLibraryModal } from "./components/PlanLibraryModal";
 import {
+  clearLegacyPlanState,
   DEFAULT_STATE,
   deleteSavedPlan,
   listSavedPlans,
@@ -39,7 +40,7 @@ function snapRotation(deg: number): number {
 }
 
 export default function App() {
-  const initial = useMemo(() => loadSessionSnapshot(), []);
+  const [initial] = useState(() => loadSessionSnapshot());
   const [plan, setPlan] = useState<PlanState>(initial.plan);
   const [activePlanId, setActivePlanId] = useState<string | null>(
     initial.activePlanId,
@@ -67,13 +68,16 @@ export default function App() {
   const [pendingAction, setPendingAction] = useState<"open" | null>(null);
   const [storageError, setStorageError] = useState<StorageError | null>(null);
   const sessionHydrated = useRef(false);
+  const needsLegacyMigration = useRef(initial.needsLegacyMigration);
 
   const isDirty = !planStatesEqual(plan, baselineState);
 
   useEffect(() => {
     if (!sessionHydrated.current) {
       sessionHydrated.current = true;
-      return;
+      if (!needsLegacyMigration.current) {
+        return;
+      }
     }
     const result = saveSessionSnapshot({
       plan,
@@ -83,6 +87,11 @@ export default function App() {
     });
     if (!result.ok) {
       setStorageError(result.error);
+      return;
+    }
+    if (needsLegacyMigration.current) {
+      clearLegacyPlanState();
+      needsLegacyMigration.current = false;
     }
   }, [plan, activePlanId, activePlanName, baselineState]);
 
@@ -199,23 +208,20 @@ export default function App() {
   }, []);
 
   const handleUpload = useCallback((dataUrl: string) => {
-    setPlan((prev) => {
-      const next = {
-        ...prev,
-        imageDataUrl: dataUrl,
-        pixelsPerInch: null,
-        items: [],
-      };
-      setBaselineState(next);
-      return next;
-    });
+    const next = {
+      ...DEFAULT_STATE,
+      imageDataUrl: dataUrl,
+      unitSystem: plan.unitSystem,
+    };
+    setPlan(next);
+    setBaselineState(next);
     setActivePlanId(null);
     setActivePlanName(null);
     setSelectedId(null);
     setToolMode("calibrate");
     setCalibration({ start: null, end: null });
     setPendingLinePx(null);
-  }, []);
+  }, [plan.unitSystem]);
 
   const handlePlace = useCallback(
     (preset: CatalogPreset) => {

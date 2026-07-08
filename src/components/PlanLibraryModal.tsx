@@ -138,10 +138,10 @@ export function PlanLibraryModal({
           <>
             <ul className={styles.list}>
               {plans.map((plan) => (
-                <li key={plan.id}>
+                <li key={plan.id} className={styles.listItem}>
                   <button
                     type="button"
-                    className={styles.listItem}
+                    className={styles.openBtn}
                     onClick={() => onOpen(plan.id)}
                   >
                     <span className={styles.listItemMain}>
@@ -150,28 +150,17 @@ export function PlanLibraryModal({
                         Updated {formatUpdatedAt(plan.updatedAt)}
                       </span>
                     </span>
-                    {onDelete && (
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        className={styles.deleteBtn}
-                        aria-label={`Delete ${plan.name}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDelete(plan.id);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onDelete(plan.id);
-                          }
-                        }}
-                      >
-                        Delete
-                      </span>
-                    )}
                   </button>
+                  {onDelete && (
+                    <button
+                      type="button"
+                      className={styles.deleteBtn}
+                      aria-label={`Delete ${plan.name}`}
+                      onClick={() => onDelete(plan.id)}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

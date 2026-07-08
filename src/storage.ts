@@ -12,6 +12,10 @@ const SESSION_KEY = "dimensional.session.v2";
 const LIBRARY_INDEX_KEY = "dimensional.library.index.v2";
 const planEntryKey = (id: string) => `dimensional.library.plan.${id}.v2`;
 
+type LoadedSessionSnapshot = SessionSnapshot & {
+  needsLegacyMigration: boolean;
+};
+
 export const DEFAULT_STATE: PlanState = {
   imageDataUrl: null,
   pixelsPerInch: null,
@@ -70,7 +74,7 @@ export function planStatesEqual(a: PlanState, b: PlanState): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-export function loadSessionSnapshot(): SessionSnapshot {
+export function loadSessionSnapshot(): LoadedSessionSnapshot {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
     if (raw) {
@@ -86,6 +90,7 @@ export function loadSessionSnapshot(): SessionSnapshot {
             ? parsed.activePlanName
             : null,
         baselineState,
+        needsLegacyMigration: false,
       };
     }
   } catch {
@@ -99,6 +104,7 @@ export function loadSessionSnapshot(): SessionSnapshot {
       activePlanId: null,
       activePlanName: null,
       baselineState: legacy,
+      needsLegacyMigration: true,
     };
   }
 
@@ -108,6 +114,7 @@ export function loadSessionSnapshot(): SessionSnapshot {
     activePlanId: null,
     activePlanName: null,
     baselineState: plan,
+    needsLegacyMigration: false,
   };
 }
 
@@ -117,11 +124,14 @@ function loadLegacyPlanState(): PlanState | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<PlanState>;
     const plan = normalizePlanState(parsed);
-    tryRemoveItem(LEGACY_KEY);
     return plan;
   } catch {
     return null;
   }
+}
+
+export function clearLegacyPlanState(): void {
+  tryRemoveItem(LEGACY_KEY);
 }
 
 export function saveSessionSnapshot(snapshot: SessionSnapshot): StorageResult {
@@ -223,18 +233,4 @@ export function deleteSavedPlan(id: string): StorageResult {
   tryRemoveItem(planEntryKey(id));
   const index = listSavedPlans().filter((p) => p.id !== id);
   return writeLibraryIndex(index);
-}
-
-/** @deprecated Use loadSessionSnapshot instead */
-export function loadPlanState(): PlanState {
-  return loadSessionSnapshot().plan;
-}
-
-/** @deprecated Use saveSessionSnapshot instead */
-export function savePlanState(state: PlanState): void {
-  const snapshot = loadSessionSnapshot();
-  saveSessionSnapshot({
-    ...snapshot,
-    plan: state,
-  });
 }

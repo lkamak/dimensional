@@ -107,7 +107,6 @@ export function TopBar({
         <button
           type="button"
           className="btn btn-ghost"
-          disabled={!hasImage}
           onClick={onOpen}
         >
           Open
