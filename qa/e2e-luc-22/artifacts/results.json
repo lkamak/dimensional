@@ -1,0 +1,22 @@
+{
+  "criteria": {
+    "convert_to_vector": true,
+    "failure_does_not_destroy": true,
+    "scale_remains_valid": true,
+    "walls_editable_indicator": true,
+    "underlay_toggle": true,
+    "edit_delete_converted": true,
+    "same_model_as_hand_drawn": true
+  },
+  "notes": [],
+  "wallCountAfterAccept": 0,
+  "scaleAfterConversion": "Scale set · 1 in = 2.7 px · walls editable",
+  "furniturePreserved": true,
+  "cancelPreservedWalls": false,
+  "scaleBefore": "Scale set · 1 in = 2.7 px",
+  "detectedWalls": 6,
+  "persistedWalls": 5,
+  "persistedScale": 2.6666666666666665,
+  "persistedUnderlayVisible": true,
+  "persistedImageKept": true
+}
