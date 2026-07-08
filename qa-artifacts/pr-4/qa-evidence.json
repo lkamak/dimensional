@@ -1,0 +1,30 @@
+{
+  "url": "http://127.0.0.1:5173/",
+  "fixture": "/tmp/dimensional-pr4-qa/blueprint.svg",
+  "checkpoints": {
+    "afterScale": {
+      "pixelsPerInch": 1.9999999999999998,
+      "items": 0,
+      "walls": 0,
+      "hasImage": true
+    },
+    "afterFurniture": {
+      "pixelsPerInch": 1.9999999999999998,
+      "items": 1,
+      "walls": 0,
+      "hasImage": true
+    },
+    "afterConversionFailure": {
+      "pixelsPerInch": 1.9999999999999998,
+      "items": 1,
+      "walls": 0,
+      "hasImage": true
+    }
+  },
+  "screenshots": {
+    "uploaded": "/tmp/dimensional-pr4-qa/final-artifacts/01-uploaded-calibrate.png",
+    "scaleSet": "/tmp/dimensional-pr4-qa/final-artifacts/02-scale-set.png",
+    "conversionFailure": "/tmp/dimensional-pr4-qa/final-artifacts/03-conversion-failure.png"
+  },
+  "conversionModalText": "Convert to drawing\n\nNo wall segments were detected in this image.\n\nNo walls were detected. Try a higher-contrast blueprint, or draw walls manually.\n\nCancel\nRetry"
+}
