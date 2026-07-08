@@ -1,0 +1,87 @@
+{
+  "generatedAt": "2026-07-08T20:51:52.180Z",
+  "appUrl": "http://127.0.0.1:5173/",
+  "browser": "system google-chrome via playwright-core",
+  "blankPlan": {
+    "emptyState": "/workspace/qa-artifacts/pr-2/01-empty-state.png",
+    "blankPlanState": {
+      "imageDataUrl": null,
+      "canvasWidth": 1200,
+      "canvasHeight": 900,
+      "pixelsPerInch": null,
+      "elements": 0,
+      "items": 0
+    },
+    "afterDrawing": {
+      "elements": [
+        {
+          "kind": "wall",
+          "x1": 814.2857142857143,
+          "y1": 333.92857142857144,
+          "x2": 1349.9999999999998,
+          "y2": 333.92857142857144
+        },
+        {
+          "kind": "room",
+          "x1": 858.9285714285714,
+          "y1": 423.2142857142857,
+          "x2": 1278.5714285714284,
+          "y2": 735.7142857142857
+        }
+      ]
+    },
+    "drawnGeometry": "/workspace/qa-artifacts/pr-2/02-drawn-wall-room.png",
+    "selectedGeometry": "/workspace/qa-artifacts/pr-2/03-selected-wall-before-delete.png",
+    "afterDelete": {
+      "elements": [
+        {
+          "kind": "room"
+        }
+      ]
+    },
+    "deletedGeometry": "/workspace/qa-artifacts/pr-2/04-after-delete-room-remains.png",
+    "afterCalibration": {
+      "pixelsPerInch": 3.4970238095238084
+    },
+    "afterFurniture": {
+      "items": [
+        {
+          "label": "Sofa",
+          "widthIn": 84,
+          "depthIn": 38
+        }
+      ],
+      "elements": [
+        {
+          "kind": "room"
+        }
+      ],
+      "pixelsPerInch": 3.4970238095238084
+    },
+    "furniturePlaced": "/workspace/qa-artifacts/pr-2/05-furniture-on-drawn-plan.png",
+    "afterReload": {
+      "elements": [
+        {
+          "kind": "room"
+        }
+      ],
+      "items": [
+        {
+          "label": "Sofa"
+        }
+      ],
+      "pixelsPerInch": 3.4970238095238084
+    },
+    "persistedReload": "/workspace/qa-artifacts/pr-2/06-after-reload-persisted.png"
+  },
+  "upload": {
+    "uploadState": {
+      "imageDataUrlPrefix": "data:image/png;base64,",
+      "canvasWidth": null,
+      "canvasHeight": null,
+      "elements": 0,
+      "items": 0
+    },
+    "uploadScreenshot": "/workspace/qa-artifacts/pr-2/07-upload-path-still-works.png"
+  }
+}
