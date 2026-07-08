@@ -70,12 +70,6 @@ export type CalibrationDraft = {
   end: { x: number; y: number } | null;
 };
 
-export type DrawDraft = {
-  kind: DrawElementKind;
-  start: { x: number; y: number } | null;
-  end: { x: number; y: number } | null;
-};
-
 export function isDrawTool(mode: ToolMode): mode is DrawToolMode {
   return (
     mode === "draw-wall" ||
@@ -87,15 +81,4 @@ export function isDrawTool(mode: ToolMode): mode is DrawToolMode {
 
 export function hasActivePlan(plan: PlanState): boolean {
   return plan.imageDataUrl != null || plan.canvasWidth != null;
-}
-
-export function planContentSize(plan: PlanState): {
-  width: number;
-  height: number;
-} | null {
-  if (plan.imageDataUrl) return null;
-  if (plan.canvasWidth != null && plan.canvasHeight != null) {
-    return { width: plan.canvasWidth, height: plan.canvasHeight };
-  }
-  return null;
 }

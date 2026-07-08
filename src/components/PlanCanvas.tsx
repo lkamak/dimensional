@@ -121,6 +121,7 @@ function renderElementShape(
   selected: boolean,
   scale: number,
   draggable: boolean,
+  listening: boolean,
   onSelect: () => void,
   onDragEnd: (dx: number, dy: number) => void,
 ) {
@@ -137,6 +138,7 @@ function renderElementShape(
         lineCap="square"
         hitStrokeWidth={16 / scale}
         draggable={draggable}
+        listening={listening}
         onClick={(e) => {
           e.cancelBubble = true;
           onSelect();
@@ -164,6 +166,7 @@ function renderElementShape(
         dash={[6 / scale, 4 / scale]}
         hitStrokeWidth={12 / scale}
         draggable={draggable}
+        listening={listening}
         onClick={(e) => {
           e.cancelBubble = true;
           onSelect();
@@ -196,6 +199,7 @@ function renderElementShape(
       stroke={stroke}
       strokeWidth={strokeWidth}
       draggable={draggable}
+      listening={listening}
       onClick={(e) => {
         e.cancelBubble = true;
         onSelect();
@@ -446,7 +450,11 @@ export function PlanCanvas({
       return;
     }
 
-    if (e.target === stage || e.target.getClassName() === "Image") {
+    if (
+      e.target === stage ||
+      e.target.getClassName() === "Image" ||
+      e.target.name() === "canvas-background"
+    ) {
       onSelect(null);
       onElementSelect(null);
     }
@@ -611,6 +619,7 @@ export function PlanCanvas({
           selected,
           scale,
           draggable,
+          !isCalibrating && !drawKind,
           () => {
             onElementSelect(el.id);
             onSelect(null);
@@ -630,6 +639,8 @@ export function PlanCanvas({
       selectedElementId,
       toolMode,
       isPanning,
+      isCalibrating,
+      drawKind,
       scale,
       onElementSelect,
       onSelect,
@@ -668,6 +679,7 @@ export function PlanCanvas({
         <Layer>
           {!image && canvasWidth != null && canvasHeight != null && (
             <Rect
+              name="canvas-background"
               x={0}
               y={0}
               width={canvasWidth}
