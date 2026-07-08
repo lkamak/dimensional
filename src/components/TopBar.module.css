@@ -1,0 +1,80 @@
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: var(--topbar-h);
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 140px;
+}
+
+.brandName {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: var(--fg);
+}
+
+.brandTag {
+  font-size: 11px;
+  color: var(--fg-subtle);
+  letter-spacing: 0.02em;
+}
+
+.topbarActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.unitToggle {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.unitToggle button {
+  height: 26px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.active {
+  background: var(--bg-elevated) !important;
+  color: var(--fg) !important;
+  box-shadow: var(--shadow-sm);
+}
+
+.fileInput {
+  display: none;
+}
+
+.scalePill {
+  font-size: 12px;
+  color: var(--fg-muted);
+  padding: 0 8px;
+}
