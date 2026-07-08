@@ -1,27 +1,46 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Stage, Layer, Image as KonvaImage, Group, Rect, Text, Line, Circle } from "react-konva";
+import {
+  Stage,
+  Layer,
+  Image as KonvaImage,
+  Group,
+  Rect,
+  Text,
+  Line,
+  Circle,
+} from "react-konva";
 import type Konva from "konva";
 import type {
   CalibrationDraft,
+  DrawElement,
+  DrawElementKind,
   FurnitureItem,
   ToolMode,
   UnitSystem,
 } from "../types";
+import { isDrawTool } from "../types";
 import { formatDimensions } from "../units";
 
 type PlanCanvasProps = {
   imageDataUrl: string | null;
+  canvasWidth: number | null;
+  canvasHeight: number | null;
   pixelsPerInch: number | null;
   items: FurnitureItem[];
+  elements: DrawElement[];
   selectedId: string | null;
+  selectedElementId: string | null;
   toolMode: ToolMode;
   unitSystem: UnitSystem;
   calibration: CalibrationDraft;
   onSelect: (id: string | null) => void;
+  onElementSelect: (id: string | null) => void;
   onItemChange: (id: string, patch: Partial<FurnitureItem>) => void;
+  onElementChange: (id: string, patch: Partial<DrawElement>) => void;
+  onElementAdd: (element: DrawElement) => void;
   onCalibrationChange: (draft: CalibrationDraft) => void;
   onCalibrationComplete: (lineLengthPx: number) => void;
-  onImageSize?: (size: { width: number; height: number }) => void;
+  onCanvasSize?: (size: { width: number; height: number }) => void;
 };
 
 function useHtmlImage(src: string | null): HTMLImageElement | null {
@@ -45,7 +64,6 @@ function boxesOverlap(
   a: { x: number; y: number; w: number; h: number; rotation: number },
   b: { x: number; y: number; w: number; h: number; rotation: number },
 ): boolean {
-  // Approximate with axis-aligned bounding boxes of rotated rects
   const aabb = (r: typeof a) => {
     const rad = (r.rotation * Math.PI) / 180;
     const cos = Math.abs(Math.cos(rad));
@@ -76,19 +94,191 @@ function dist(
   return Math.hypot(b.x - a.x, b.y - a.y);
 }
 
+function normalizeRect(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): { x1: number; y1: number; x2: number; y2: number } {
+  return {
+    x1: Math.min(x1, x2),
+    y1: Math.min(y1, y2),
+    x2: Math.max(x1, x2),
+    y2: Math.max(y1, y2),
+  };
+}
+
+function drawKindFromTool(toolMode: ToolMode): DrawElementKind | null {
+  if (toolMode === "draw-wall") return "wall";
+  if (toolMode === "draw-room") return "room";
+  if (toolMode === "draw-line") return "line";
+  if (toolMode === "draw-rect") return "rect";
+  return null;
+}
+
+function renderElementShape(
+  el: DrawElement,
+  selected: boolean,
+  scale: number,
+  draggable: boolean,
+  onSelect: () => void,
+  onDragEnd: (dx: number, dy: number) => void,
+) {
+  const stroke = selected ? "#3d5a5b" : "rgba(42, 41, 36, 0.75)";
+  const strokeWidth = (selected ? 2 : 1) / scale;
+
+  if (el.kind === "wall") {
+    return (
+      <Line
+        key={el.id}
+        points={[el.x1, el.y1, el.x2, el.y2]}
+        stroke={stroke}
+        strokeWidth={8 / scale}
+        lineCap="square"
+        hitStrokeWidth={16 / scale}
+        draggable={draggable}
+        onClick={(e) => {
+          e.cancelBubble = true;
+          onSelect();
+        }}
+        onTap={(e) => {
+          e.cancelBubble = true;
+          onSelect();
+        }}
+        onDragEnd={(e) => {
+          const node = e.target;
+          onDragEnd(node.x(), node.y());
+          node.position({ x: 0, y: 0 });
+        }}
+      />
+    );
+  }
+
+  if (el.kind === "line") {
+    return (
+      <Line
+        key={el.id}
+        points={[el.x1, el.y1, el.x2, el.y2]}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        dash={[6 / scale, 4 / scale]}
+        hitStrokeWidth={12 / scale}
+        draggable={draggable}
+        onClick={(e) => {
+          e.cancelBubble = true;
+          onSelect();
+        }}
+        onTap={(e) => {
+          e.cancelBubble = true;
+          onSelect();
+        }}
+        onDragEnd={(e) => {
+          const node = e.target;
+          onDragEnd(node.x(), node.y());
+          node.position({ x: 0, y: 0 });
+        }}
+      />
+    );
+  }
+
+  const rect = normalizeRect(el.x1, el.y1, el.x2, el.y2);
+  const width = rect.x2 - rect.x1;
+  const height = rect.y2 - rect.y1;
+
+  return (
+    <Rect
+      key={el.id}
+      x={rect.x1}
+      y={rect.y1}
+      width={width}
+      height={height}
+      fill={el.kind === "room" ? "rgba(61, 90, 91, 0.08)" : "transparent"}
+      stroke={stroke}
+      strokeWidth={strokeWidth}
+      draggable={draggable}
+      onClick={(e) => {
+        e.cancelBubble = true;
+        onSelect();
+      }}
+      onTap={(e) => {
+        e.cancelBubble = true;
+        onSelect();
+      }}
+      onDragEnd={(e) => {
+        const node = e.target;
+        onDragEnd(node.x() - rect.x1, node.y() - rect.y1);
+      }}
+    />
+  );
+}
+
+function renderDraftPreview(
+  kind: DrawElementKind,
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  scale: number,
+) {
+  if (kind === "wall") {
+    return (
+      <Line
+        points={[start.x, start.y, end.x, end.y]}
+        stroke="#3d5a5b"
+        strokeWidth={8 / scale}
+        lineCap="square"
+        opacity={0.65}
+        listening={false}
+      />
+    );
+  }
+  if (kind === "line") {
+    return (
+      <Line
+        points={[start.x, start.y, end.x, end.y]}
+        stroke="#3d5a5b"
+        strokeWidth={2 / scale}
+        dash={[6 / scale, 4 / scale]}
+        opacity={0.65}
+        listening={false}
+      />
+    );
+  }
+  const rect = normalizeRect(start.x, start.y, end.x, end.y);
+  return (
+    <Rect
+      x={rect.x1}
+      y={rect.y1}
+      width={rect.x2 - rect.x1}
+      height={rect.y2 - rect.y1}
+      fill={kind === "room" ? "rgba(61, 90, 91, 0.08)" : "transparent"}
+      stroke="#3d5a5b"
+      strokeWidth={2 / scale}
+      dash={[6 / scale, 4 / scale]}
+      opacity={0.65}
+      listening={false}
+    />
+  );
+}
+
 export function PlanCanvas({
   imageDataUrl,
+  canvasWidth,
+  canvasHeight,
   pixelsPerInch,
   items,
+  elements,
   selectedId,
+  selectedElementId,
   toolMode,
   unitSystem,
   calibration,
   onSelect,
+  onElementSelect,
   onItemChange,
+  onElementChange,
+  onElementAdd,
   onCalibrationChange,
   onCalibrationComplete,
-  onImageSize,
+  onCanvasSize,
 }: PlanCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -96,8 +286,17 @@ export function PlanCanvas({
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [spaceDown, setSpaceDown] = useState(false);
+  const [drawDraft, setDrawDraft] = useState<{
+    kind: DrawElementKind;
+    start: { x: number; y: number };
+    end: { x: number; y: number } | null;
+  } | null>(null);
   const image = useHtmlImage(imageDataUrl);
   const fittedRef = useRef<string | null>(null);
+
+  const contentWidth = image?.width ?? canvasWidth ?? 800;
+  const contentHeight = image?.height ?? canvasHeight ?? 600;
+  const fitKey = imageDataUrl ?? `blank:${canvasWidth}x${canvasHeight}`;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -131,26 +330,34 @@ export function PlanCanvas({
     };
   }, []);
 
-  // Fit image into view when first loaded / replaced
   useEffect(() => {
-    if (!image || !imageDataUrl) return;
-    onImageSize?.({ width: image.width, height: image.height });
-    if (fittedRef.current === imageDataUrl) return;
-    fittedRef.current = imageDataUrl;
+    onCanvasSize?.({ width: contentWidth, height: contentHeight });
+  }, [contentWidth, contentHeight, onCanvasSize]);
+
+  useEffect(() => {
+    if (!contentWidth || !contentHeight) return;
+    if (fittedRef.current === fitKey) return;
+    fittedRef.current = fitKey;
 
     const pad = 48;
-    const sx = (size.width - pad * 2) / image.width;
-    const sy = (size.height - pad * 2) / image.height;
+    const sx = (size.width - pad * 2) / contentWidth;
+    const sy = (size.height - pad * 2) / contentHeight;
     const next = Math.min(sx, sy, 1.5);
     setScale(next);
     setPosition({
-      x: (size.width - image.width * next) / 2,
-      y: (size.height - image.height * next) / 2,
+      x: (size.width - contentWidth * next) / 2,
+      y: (size.height - contentHeight * next) / 2,
     });
-  }, [image, imageDataUrl, size.width, size.height, onImageSize]);
+  }, [image, fitKey, contentWidth, contentHeight, size.width, size.height]);
+
+  useEffect(() => {
+    setDrawDraft(null);
+  }, [toolMode]);
 
   const isPanning = toolMode === "pan" || spaceDown;
   const isCalibrating = toolMode === "calibrate";
+  const drawKind = drawKindFromTool(toolMode);
+  const isTwoClickDraw = drawKind === "wall" || drawKind === "line";
 
   const pointerWorld = (stage: Konva.Stage) => {
     const pointer = stage.getPointerPosition();
@@ -159,6 +366,24 @@ export function PlanCanvas({
       x: (pointer.x - position.x) / scale,
       y: (pointer.y - position.y) / scale,
     };
+  };
+
+  const commitDrawElement = (
+    kind: DrawElementKind,
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+  ) => {
+    if (dist(start, end) < 4) return;
+    const rect = normalizeRect(start.x, start.y, end.x, end.y);
+    onElementAdd({
+      id: crypto.randomUUID(),
+      kind,
+      x1: rect.x1,
+      y1: rect.y1,
+      x2: rect.x2,
+      y2: rect.y2,
+    });
+    setDrawDraft(null);
   };
 
   const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -194,32 +419,59 @@ export function PlanCanvas({
     const stage = stageRef.current;
     if (!stage) return;
 
+    const world = pointerWorld(stage);
+    if (!world) return;
+
     if (isCalibrating) {
-      const world = pointerWorld(stage);
-      if (!world) return;
       if (!calibration.start) {
         onCalibrationChange({ start: world, end: null });
       } else {
-        // Second click commits the line (end may already be a live preview)
         onCalibrationChange({ start: calibration.start, end: world });
         onCalibrationComplete(dist(calibration.start, world));
       }
       return;
     }
 
-    // Click empty stage → deselect
+    if (drawKind) {
+      if (isTwoClickDraw) {
+        if (!drawDraft) {
+          setDrawDraft({ kind: drawKind, start: world, end: null });
+        } else {
+          commitDrawElement(drawKind, drawDraft.start, world);
+        }
+        return;
+      }
+
+      setDrawDraft({ kind: drawKind, start: world, end: world });
+      return;
+    }
+
     if (e.target === stage || e.target.getClassName() === "Image") {
       onSelect(null);
+      onElementSelect(null);
     }
   };
 
   const handleStageMouseMove = () => {
-    if (!isCalibrating || !calibration.start || calibration.end) return;
     const stage = stageRef.current;
     if (!stage) return;
     const world = pointerWorld(stage);
     if (!world) return;
-    onCalibrationChange({ start: calibration.start, end: world });
+
+    if (isCalibrating && calibration.start && !calibration.end) {
+      onCalibrationChange({ start: calibration.start, end: world });
+      return;
+    }
+
+    if (drawDraft && (!isTwoClickDraw || drawDraft.end == null)) {
+      setDrawDraft({ ...drawDraft, end: world });
+    }
+  };
+
+  const handleStageMouseUp = () => {
+    if (!drawDraft || isTwoClickDraw || isPanning) return;
+    if (!drawDraft.end) return;
+    commitDrawElement(drawDraft.kind, drawDraft.start, drawDraft.end);
   };
 
   const furnitureNodes = useMemo(() => {
@@ -271,14 +523,16 @@ export function PlanCanvas({
           rotation={item.rotation}
           offsetX={w / 2}
           offsetY={h / 2}
-          draggable={!isCalibrating && !isPanning}
+          draggable={!isCalibrating && !isPanning && !isDrawTool(toolMode)}
           onClick={(e) => {
             e.cancelBubble = true;
             onSelect(item.id);
+            onElementSelect(null);
           }}
           onTap={(e) => {
             e.cancelBubble = true;
             onSelect(item.id);
+            onElementSelect(null);
           }}
           onDragEnd={(e) => {
             onItemChange(item.id, {
@@ -339,11 +593,55 @@ export function PlanCanvas({
     selectedId,
     isCalibrating,
     isPanning,
+    toolMode,
     onSelect,
+    onElementSelect,
     onItemChange,
     scale,
     unitSystem,
   ]);
+
+  const elementNodes = useMemo(
+    () =>
+      elements.map((el) => {
+        const selected = el.id === selectedElementId;
+        const draggable = toolMode === "select" && !isPanning;
+        return renderElementShape(
+          el,
+          selected,
+          scale,
+          draggable,
+          () => {
+            onElementSelect(el.id);
+            onSelect(null);
+          },
+          (dx, dy) => {
+            onElementChange(el.id, {
+              x1: el.x1 + dx,
+              y1: el.y1 + dy,
+              x2: el.x2 + dx,
+              y2: el.y2 + dy,
+            });
+          },
+        );
+      }),
+    [
+      elements,
+      selectedElementId,
+      toolMode,
+      isPanning,
+      scale,
+      onElementSelect,
+      onSelect,
+      onElementChange,
+    ],
+  );
+
+  const cursor = isPanning
+    ? "grab"
+    : isCalibrating || drawKind
+      ? "crosshair"
+      : "default";
 
   return (
     <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
@@ -364,20 +662,39 @@ export function PlanCanvas({
         onWheel={handleWheel}
         onMouseDown={handleStageMouseDown}
         onMouseMove={handleStageMouseMove}
-        style={{
-          cursor: isPanning ? "grab" : isCalibrating ? "crosshair" : "default",
-        }}
+        onMouseUp={handleStageMouseUp}
+        style={{ cursor }}
       >
         <Layer>
+          {!image && canvasWidth != null && canvasHeight != null && (
+            <Rect
+              x={0}
+              y={0}
+              width={canvasWidth}
+              height={canvasHeight}
+              fill="#fafaf7"
+              stroke="rgba(42, 41, 36, 0.2)"
+              strokeWidth={1 / scale}
+              listening={!isCalibrating && !drawKind}
+            />
+          )}
           {image && (
             <KonvaImage
               image={image}
               width={image.width}
               height={image.height}
-              listening={!isCalibrating}
+              listening={!isCalibrating && !drawKind}
             />
           )}
+          {elementNodes}
           {furnitureNodes}
+          {drawDraft?.end &&
+            renderDraftPreview(
+              drawDraft.kind,
+              drawDraft.start,
+              drawDraft.end,
+              scale,
+            )}
           {isCalibrating && calibration.start && (
             <>
               <Circle
