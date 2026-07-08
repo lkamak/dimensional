@@ -1,11 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Stage, Layer, Image as KonvaImage, Group, Rect, Text, Line, Circle } from "react-konva";
+import {
+  Stage,
+  Layer,
+  Image as KonvaImage,
+  Group,
+  Rect,
+  Text,
+  Line,
+  Circle,
+} from "react-konva";
 import type Konva from "konva";
 import type {
   CalibrationDraft,
   FurnitureItem,
   ToolMode,
   UnitSystem,
+  WallDraft,
+  WallSegment,
 } from "../types";
 import { formatDimensions } from "../units";
 
@@ -13,14 +24,24 @@ type PlanCanvasProps = {
   imageDataUrl: string | null;
   pixelsPerInch: number | null;
   items: FurnitureItem[];
+  walls: WallSegment[];
   selectedId: string | null;
+  selectedWallId: string | null;
   toolMode: ToolMode;
   unitSystem: UnitSystem;
   calibration: CalibrationDraft;
+  wallDraft: WallDraft;
+  imageUnderlayVisible: boolean;
+  imageUnderlayOpacity: number;
+  conversionPreview?: { start: { x: number; y: number }; end: { x: number; y: number } }[];
   onSelect: (id: string | null) => void;
+  onSelectWall: (id: string | null) => void;
   onItemChange: (id: string, patch: Partial<FurnitureItem>) => void;
+  onWallChange: (id: string, patch: Partial<WallSegment>) => void;
   onCalibrationChange: (draft: CalibrationDraft) => void;
   onCalibrationComplete: (lineLengthPx: number) => void;
+  onWallDraftChange: (draft: WallDraft) => void;
+  onWallComplete: (start: { x: number; y: number }, end: { x: number; y: number }) => void;
   onImageSize?: (size: { width: number; height: number }) => void;
 };
 
@@ -45,7 +66,6 @@ function boxesOverlap(
   a: { x: number; y: number; w: number; h: number; rotation: number },
   b: { x: number; y: number; w: number; h: number; rotation: number },
 ): boolean {
-  // Approximate with axis-aligned bounding boxes of rotated rects
   const aabb = (r: typeof a) => {
     const rad = (r.rotation * Math.PI) / 180;
     const cos = Math.abs(Math.cos(rad));
@@ -76,18 +96,58 @@ function dist(
   return Math.hypot(b.x - a.x, b.y - a.y);
 }
 
+function pointToSegmentDistance(
+  p: { x: number; y: number },
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq < 1e-6) return dist(p, a);
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq));
+  return dist(p, { x: a.x + t * dx, y: a.y + t * dy });
+}
+
+function findWallAt(
+  walls: WallSegment[],
+  point: { x: number; y: number },
+  threshold: number,
+): WallSegment | null {
+  let best: WallSegment | null = null;
+  let bestDist = threshold;
+  for (const wall of walls) {
+    const d = pointToSegmentDistance(point, wall.start, wall.end);
+    if (d < bestDist) {
+      bestDist = d;
+      best = wall;
+    }
+  }
+  return best;
+}
+
 export function PlanCanvas({
   imageDataUrl,
   pixelsPerInch,
   items,
+  walls,
   selectedId,
+  selectedWallId,
   toolMode,
   unitSystem,
   calibration,
+  wallDraft,
+  imageUnderlayVisible,
+  imageUnderlayOpacity,
+  conversionPreview,
   onSelect,
+  onSelectWall,
   onItemChange,
+  onWallChange,
   onCalibrationChange,
   onCalibrationComplete,
+  onWallDraftChange,
+  onWallComplete,
   onImageSize,
 }: PlanCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -131,7 +191,6 @@ export function PlanCanvas({
     };
   }, []);
 
-  // Fit image into view when first loaded / replaced
   useEffect(() => {
     if (!image || !imageDataUrl) return;
     onImageSize?.({ width: image.width, height: image.height });
@@ -151,6 +210,7 @@ export function PlanCanvas({
 
   const isPanning = toolMode === "pan" || spaceDown;
   const isCalibrating = toolMode === "calibrate";
+  const isDrawingWall = toolMode === "draw_wall";
 
   const pointerWorld = (stage: Konva.Stage) => {
     const pointer = stage.getPointerPosition();
@@ -194,33 +254,140 @@ export function PlanCanvas({
     const stage = stageRef.current;
     if (!stage) return;
 
+    const world = pointerWorld(stage);
+    if (!world) return;
+
     if (isCalibrating) {
-      const world = pointerWorld(stage);
-      if (!world) return;
       if (!calibration.start) {
         onCalibrationChange({ start: world, end: null });
       } else {
-        // Second click commits the line (end may already be a live preview)
         onCalibrationChange({ start: calibration.start, end: world });
         onCalibrationComplete(dist(calibration.start, world));
       }
       return;
     }
 
-    // Click empty stage → deselect
+    if (isDrawingWall) {
+      if (!wallDraft.start) {
+        onWallDraftChange({ start: world, end: null });
+      } else {
+        onWallDraftChange({ start: wallDraft.start, end: world });
+        onWallComplete(wallDraft.start, world);
+      }
+      return;
+    }
+
+    if (toolMode === "select") {
+      const hitWall = findWallAt(walls, world, 8 / scale);
+      if (hitWall) {
+        onSelectWall(hitWall.id);
+        onSelect(null);
+        return;
+      }
+    }
+
     if (e.target === stage || e.target.getClassName() === "Image") {
       onSelect(null);
+      onSelectWall(null);
     }
   };
 
   const handleStageMouseMove = () => {
-    if (!isCalibrating || !calibration.start || calibration.end) return;
     const stage = stageRef.current;
     if (!stage) return;
     const world = pointerWorld(stage);
     if (!world) return;
-    onCalibrationChange({ start: calibration.start, end: world });
+
+    if (isCalibrating && calibration.start && !calibration.end) {
+      onCalibrationChange({ start: calibration.start, end: world });
+      return;
+    }
+
+    if (isDrawingWall && wallDraft.start && !wallDraft.end) {
+      onWallDraftChange({ start: wallDraft.start, end: world });
+    }
   };
+
+  const wallNodes = useMemo(() => {
+    const strokeW = 3 / scale;
+    const previewStroke = 2 / scale;
+
+    const previewNodes =
+      conversionPreview?.map((seg, i) => (
+        <Line
+          key={`preview-${i}`}
+          points={[seg.start.x, seg.start.y, seg.end.x, seg.end.y]}
+          stroke="rgba(245, 78, 0, 0.75)"
+          strokeWidth={previewStroke}
+          dash={[8 / scale, 4 / scale]}
+          listening={false}
+        />
+      )) ?? [];
+
+    const wallLines = walls.map((wall) => {
+      const selected = wall.id === selectedWallId;
+      return (
+        <Group key={wall.id}>
+          <Line
+            points={[wall.start.x, wall.start.y, wall.end.x, wall.end.y]}
+            stroke={selected ? "#3d5a5b" : "rgba(42, 41, 36, 0.85)"}
+            strokeWidth={selected ? strokeW + 1 / scale : strokeW}
+            hitStrokeWidth={Math.max(12 / scale, 8)}
+            onClick={(ev) => {
+              ev.cancelBubble = true;
+              onSelectWall(wall.id);
+              onSelect(null);
+            }}
+            onTap={(ev) => {
+              ev.cancelBubble = true;
+              onSelectWall(wall.id);
+              onSelect(null);
+            }}
+          />
+          {selected && (
+            <>
+              <Circle
+                x={wall.start.x}
+                y={wall.start.y}
+                radius={5 / scale}
+                fill="#3d5a5b"
+                draggable={!isPanning && !isCalibrating}
+                onDragEnd={(ev) => {
+                  onWallChange(wall.id, {
+                    start: { x: ev.target.x(), y: ev.target.y() },
+                  });
+                }}
+              />
+              <Circle
+                x={wall.end.x}
+                y={wall.end.y}
+                radius={5 / scale}
+                fill="#3d5a5b"
+                draggable={!isPanning && !isCalibrating}
+                onDragEnd={(ev) => {
+                  onWallChange(wall.id, {
+                    end: { x: ev.target.x(), y: ev.target.y() },
+                  });
+                }}
+              />
+            </>
+          )}
+        </Group>
+      );
+    });
+
+    return [...previewNodes, ...wallLines];
+  }, [
+    walls,
+    selectedWallId,
+    scale,
+    conversionPreview,
+    isPanning,
+    isCalibrating,
+    onSelectWall,
+    onSelect,
+    onWallChange,
+  ]);
 
   const furnitureNodes = useMemo(() => {
     if (!pixelsPerInch) return null;
@@ -271,19 +438,21 @@ export function PlanCanvas({
           rotation={item.rotation}
           offsetX={w / 2}
           offsetY={h / 2}
-          draggable={!isCalibrating && !isPanning}
-          onClick={(e) => {
-            e.cancelBubble = true;
+          draggable={!isCalibrating && !isPanning && !isDrawingWall}
+          onClick={(ev) => {
+            ev.cancelBubble = true;
             onSelect(item.id);
+            onSelectWall(null);
           }}
-          onTap={(e) => {
-            e.cancelBubble = true;
+          onTap={(ev) => {
+            ev.cancelBubble = true;
             onSelect(item.id);
+            onSelectWall(null);
           }}
-          onDragEnd={(e) => {
+          onDragEnd={(ev) => {
             onItemChange(item.id, {
-              x: e.target.x(),
-              y: e.target.y(),
+              x: ev.target.x(),
+              y: ev.target.y(),
             });
           }}
         >
@@ -339,11 +508,16 @@ export function PlanCanvas({
     selectedId,
     isCalibrating,
     isPanning,
+    isDrawingWall,
     onSelect,
+    onSelectWall,
     onItemChange,
     scale,
     unitSystem,
   ]);
+
+  const cursor =
+    isPanning ? "grab" : isCalibrating || isDrawingWall ? "crosshair" : "default";
 
   return (
     <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
@@ -364,19 +538,19 @@ export function PlanCanvas({
         onWheel={handleWheel}
         onMouseDown={handleStageMouseDown}
         onMouseMove={handleStageMouseMove}
-        style={{
-          cursor: isPanning ? "grab" : isCalibrating ? "crosshair" : "default",
-        }}
+        style={{ cursor }}
       >
         <Layer>
-          {image && (
+          {image && imageUnderlayVisible && (
             <KonvaImage
               image={image}
               width={image.width}
               height={image.height}
-              listening={!isCalibrating}
+              opacity={imageUnderlayOpacity}
+              listening={!isCalibrating && !isDrawingWall}
             />
           )}
+          {wallNodes}
           {furnitureNodes}
           {isCalibrating && calibration.start && (
             <>
@@ -404,6 +578,37 @@ export function PlanCanvas({
                     y={calibration.end.y}
                     radius={4 / scale}
                     fill="#3d5a5b"
+                  />
+                </>
+              )}
+            </>
+          )}
+          {isDrawingWall && wallDraft.start && (
+            <>
+              <Circle
+                x={wallDraft.start.x}
+                y={wallDraft.start.y}
+                radius={4 / scale}
+                fill="#f54e00"
+              />
+              {wallDraft.end && (
+                <>
+                  <Line
+                    points={[
+                      wallDraft.start.x,
+                      wallDraft.start.y,
+                      wallDraft.end.x,
+                      wallDraft.end.y,
+                    ]}
+                    stroke="#f54e00"
+                    strokeWidth={2 / scale}
+                    dash={[6 / scale, 4 / scale]}
+                  />
+                  <Circle
+                    x={wallDraft.end.x}
+                    y={wallDraft.end.y}
+                    radius={4 / scale}
+                    fill="#f54e00"
                   />
                 </>
               )}

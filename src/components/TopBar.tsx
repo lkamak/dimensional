@@ -7,10 +7,16 @@ type TopBarProps = {
   toolMode: ToolMode;
   hasImage: boolean;
   pixelsPerInch: number | null;
+  hasWalls: boolean;
+  imageUnderlayVisible: boolean;
+  isConverting: boolean;
   onUnitSystemChange: (system: UnitSystem) => void;
   onUpload: (dataUrl: string) => void;
   onToolModeChange: (mode: ToolMode) => void;
+  onConvert: () => void;
+  onToggleUnderlay: () => void;
   onClearLayout: () => void;
+  onClearWalls: () => void;
   onClearAll: () => void;
 };
 
@@ -19,10 +25,16 @@ export function TopBar({
   toolMode,
   hasImage,
   pixelsPerInch,
+  hasWalls,
+  imageUnderlayVisible,
+  isConverting,
   onUnitSystemChange,
   onUpload,
   onToolModeChange,
+  onConvert,
+  onToggleUnderlay,
   onClearLayout,
+  onClearWalls,
   onClearAll,
 }: TopBarProps) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -73,12 +85,43 @@ export function TopBar({
           Calibrate
         </button>
 
+        <button
+          type="button"
+          className={`btn btn-ghost ${toolMode === "draw_wall" ? "btn-active" : ""}`}
+          disabled={!hasImage}
+          onClick={() =>
+            onToolModeChange(toolMode === "draw_wall" ? "select" : "draw_wall")
+          }
+        >
+          Draw wall
+        </button>
+
+        <button
+          type="button"
+          className="btn btn-ghost"
+          disabled={!hasImage || isConverting}
+          onClick={onConvert}
+        >
+          {isConverting ? "Converting…" : "Convert to drawing"}
+        </button>
+
+        {hasImage && (
+          <button
+            type="button"
+            className={`btn btn-ghost ${imageUnderlayVisible ? "" : "btn-active"}`}
+            onClick={onToggleUnderlay}
+          >
+            {imageUnderlayVisible ? "Hide underlay" : "Show underlay"}
+          </button>
+        )}
+
         <span className={styles.scalePill}>
           {pixelsPerInch
             ? `Scale set · 1 in = ${pixelsPerInch.toFixed(1)} px`
             : hasImage
               ? "Scale not set"
               : "No plan loaded"}
+          {hasWalls ? " · walls editable" : ""}
         </span>
 
         <div className={styles.divider} />
@@ -109,6 +152,14 @@ export function TopBar({
           onClick={onClearLayout}
         >
           Clear furniture
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          disabled={!hasWalls}
+          onClick={onClearWalls}
+        >
+          Clear walls
         </button>
         <button
           type="button"

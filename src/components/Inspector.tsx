@@ -1,6 +1,7 @@
-import type { FurnitureItem, UnitSystem } from "../types";
+import type { FurnitureItem, UnitSystem, WallSegment } from "../types";
 import {
   displayValueToInches,
+  formatLength,
   inchesToDisplayValue,
   unitLabel,
 } from "../units";
@@ -8,23 +9,63 @@ import styles from "./Inspector.module.css";
 
 type InspectorProps = {
   item: FurnitureItem | null;
+  wall: WallSegment | null;
+  pixelsPerInch: number | null;
   unitSystem: UnitSystem;
   onChange: (id: string, patch: Partial<FurnitureItem>) => void;
   onDelete: (id: string) => void;
   onRotate: (id: string, delta: number) => void;
+  onDeleteWall: (id: string) => void;
 };
+
+function wallLengthPx(wall: WallSegment): number {
+  return Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y);
+}
 
 export function Inspector({
   item,
+  wall,
+  pixelsPerInch,
   unitSystem,
   onChange,
   onDelete,
   onRotate,
+  onDeleteWall,
 }: InspectorProps) {
+  if (wall) {
+    const lengthPx = wallLengthPx(wall);
+    const lengthIn = pixelsPerInch ? lengthPx / pixelsPerInch : null;
+
+    return (
+      <aside className={styles.inspector}>
+        <h2 className={styles.heading}>Wall segment</h2>
+        <p className={styles.sub}>
+          {lengthIn != null
+            ? formatLength(lengthIn, unitSystem)
+            : `${Math.round(lengthPx)} px`}
+          {lengthIn == null && pixelsPerInch == null
+            ? " (set scale to see real length)"
+            : ""}
+        </p>
+
+        <div className={styles.actions}>
+          <button
+            type="button"
+            className="btn btn-ghost btn-danger"
+            onClick={() => onDeleteWall(wall.id)}
+          >
+            Delete wall
+          </button>
+        </div>
+      </aside>
+    );
+  }
+
   if (!item) {
     return (
       <aside className={styles.empty}>
-        Select a piece of furniture to edit its label, size, and rotation.
+        Select furniture or a wall to edit. Use Draw wall or Convert to drawing to
+        add editable geometry.
       </aside>
     );
   }

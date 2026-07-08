@@ -20,11 +20,26 @@ export type FurnitureItem = {
   rotation: number;
 };
 
+export type Point = {
+  x: number;
+  y: number;
+};
+
+/** Editable wall segment in image pixel coordinates. */
+export type WallSegment = {
+  id: string;
+  start: Point;
+  end: Point;
+};
+
 export type PlanState = {
   imageDataUrl: string | null;
   pixelsPerInch: number | null;
   unitSystem: UnitSystem;
   items: FurnitureItem[];
+  walls: WallSegment[];
+  imageUnderlayVisible: boolean;
+  imageUnderlayOpacity: number;
 };
 
 export type CatalogPreset = {
@@ -34,9 +49,14 @@ export type CatalogPreset = {
   depthIn: number;
 };
 
-export type ToolMode = "select" | "calibrate" | "pan";
+export type ToolMode = "select" | "calibrate" | "pan" | "draw_wall";
 
 export type CalibrationDraft = {
   start: { x: number; y: number } | null;
   end: { x: number; y: number } | null;
+};
+
+export type WallDraft = {
+  start: Point | null;
+  end: Point | null;
 };
