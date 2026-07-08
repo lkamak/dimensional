@@ -27,6 +27,32 @@ export type PlanState = {
   items: FurnitureItem[];
 };
 
+export type SavedPlanMeta = {
+  id: string;
+  name: string;
+  updatedAt: string;
+};
+
+export type SavedPlan = SavedPlanMeta & {
+  state: PlanState;
+};
+
+export type SessionSnapshot = {
+  plan: PlanState;
+  activePlanId: string | null;
+  activePlanName: string | null;
+  baselineState: PlanState;
+};
+
+export type StorageError = {
+  type: "quota_exceeded" | "unavailable";
+  message: string;
+};
+
+export type StorageResult<T = void> =
+  | { ok: true; value: T }
+  | { ok: false; error: StorageError };
+
 export type CatalogPreset = {
   kind: FurnitureKind;
   label: string;

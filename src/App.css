@@ -192,3 +192,39 @@
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
+
+.storage-error {
+  position: fixed;
+  top: calc(var(--topbar-h) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(139, 74, 66, 0.35);
+  background: #fff5f4;
+  color: var(--danger);
+  font-size: 13px;
+  box-shadow: var(--shadow-sm);
+}
+
+.storage-error-dismiss {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.storage-error-dismiss:hover {
+  background: var(--danger-soft);
+}

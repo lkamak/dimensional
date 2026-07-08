@@ -1,20 +1,33 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { TopBar } from "./components/TopBar";
 import { CatalogRail } from "./components/CatalogRail";
 import { Inspector } from "./components/Inspector";
 import { EmptyState } from "./components/EmptyState";
 import { PlanCanvas } from "./components/PlanCanvas";
-import { DEFAULT_STATE, loadPlanState, savePlanState } from "./storage";
+import { PlanLibraryModal } from "./components/PlanLibraryModal";
+import {
+  DEFAULT_STATE,
+  deleteSavedPlan,
+  listSavedPlans,
+  loadSavedPlan,
+  loadSessionSnapshot,
+  planStatesEqual,
+  savePlanToLibrary,
+  saveSessionSnapshot,
+} from "./storage";
 import type {
   CalibrationDraft,
   CatalogPreset,
   FurnitureItem,
   PlanState,
+  StorageError,
   ToolMode,
   UnitSystem,
 } from "./types";
 import { displayValueToInches, unitLabel } from "./units";
+
+type LibraryModalMode = "open" | "save-as" | "unsaved" | null;
 
 function createId(): string {
   return crypto.randomUUID();
@@ -26,7 +39,17 @@ function snapRotation(deg: number): number {
 }
 
 export default function App() {
-  const [plan, setPlan] = useState<PlanState>(() => loadPlanState());
+  const initial = useMemo(() => loadSessionSnapshot(), []);
+  const [plan, setPlan] = useState<PlanState>(initial.plan);
+  const [activePlanId, setActivePlanId] = useState<string | null>(
+    initial.activePlanId,
+  );
+  const [activePlanName, setActivePlanName] = useState<string | null>(
+    initial.activePlanName,
+  );
+  const [baselineState, setBaselineState] = useState<PlanState>(
+    initial.baselineState,
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [toolMode, setToolMode] = useState<ToolMode>("select");
   const [calibration, setCalibration] = useState<CalibrationDraft>({
@@ -39,10 +62,29 @@ export default function App() {
     width: number;
     height: number;
   } | null>(null);
+  const [savedPlans, setSavedPlans] = useState(() => listSavedPlans());
+  const [libraryModal, setLibraryModal] = useState<LibraryModalMode>(null);
+  const [pendingAction, setPendingAction] = useState<"open" | null>(null);
+  const [storageError, setStorageError] = useState<StorageError | null>(null);
+  const sessionHydrated = useRef(false);
+
+  const isDirty = !planStatesEqual(plan, baselineState);
 
   useEffect(() => {
-    savePlanState(plan);
-  }, [plan]);
+    if (!sessionHydrated.current) {
+      sessionHydrated.current = true;
+      return;
+    }
+    const result = saveSessionSnapshot({
+      plan,
+      activePlanId,
+      activePlanName,
+      baselineState,
+    });
+    if (!result.ok) {
+      setStorageError(result.error);
+    }
+  }, [plan, activePlanId, activePlanName, baselineState]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -51,6 +93,7 @@ export default function App() {
         setCalibration({ start: null, end: null });
         setPendingLinePx(null);
         setSelectedId(null);
+        setLibraryModal(null);
       }
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
@@ -74,17 +117,100 @@ export default function App() {
     [plan.items, selectedId],
   );
 
+  const refreshSavedPlans = useCallback(() => {
+    setSavedPlans(listSavedPlans());
+  }, []);
+
+  const applyLoadedPlan = useCallback(
+    (state: PlanState, id: string | null, name: string | null) => {
+      setPlan(state);
+      setBaselineState(state);
+      setActivePlanId(id);
+      setActivePlanName(name);
+      setSelectedId(null);
+      setToolMode(state.pixelsPerInch ? "select" : "calibrate");
+      setCalibration({ start: null, end: null });
+      setPendingLinePx(null);
+      setCalibInput("");
+    },
+    [],
+  );
+
+  const persistCurrentPlan = useCallback(
+    (id: string, name: string) => {
+      const result = savePlanToLibrary(id, name, plan);
+      if (!result.ok) {
+        setStorageError(result.error);
+        return false;
+      }
+      setActivePlanId(id);
+      setActivePlanName(result.value.name);
+      setBaselineState(plan);
+      refreshSavedPlans();
+      return true;
+    },
+    [plan, refreshSavedPlans],
+  );
+
+  const handleSave = useCallback(() => {
+    if (!plan.imageDataUrl) return;
+    if (activePlanId && activePlanName) {
+      persistCurrentPlan(activePlanId, activePlanName);
+      return;
+    }
+    setLibraryModal("save-as");
+  }, [plan.imageDataUrl, activePlanId, activePlanName, persistCurrentPlan]);
+
+  const handleSaveAs = useCallback(() => {
+    if (!plan.imageDataUrl) return;
+    setLibraryModal("save-as");
+  }, [plan.imageDataUrl]);
+
+  const openPlanById = useCallback(
+    (id: string) => {
+      const saved = loadSavedPlan(id);
+      if (!saved) {
+        setStorageError({
+          type: "unavailable",
+          message: "That saved plan could not be loaded.",
+        });
+        refreshSavedPlans();
+        return;
+      }
+      applyLoadedPlan(saved.state, saved.id, saved.name);
+      setLibraryModal(null);
+      setPendingAction(null);
+    },
+    [applyLoadedPlan, refreshSavedPlans],
+  );
+
+  const requestOpenLibrary = useCallback(() => {
+    refreshSavedPlans();
+    if (isDirty) {
+      setPendingAction("open");
+      setLibraryModal("unsaved");
+      return;
+    }
+    setLibraryModal("open");
+  }, [isDirty, refreshSavedPlans]);
+
   const updatePlan = useCallback((patch: Partial<PlanState>) => {
     setPlan((prev) => ({ ...prev, ...patch }));
   }, []);
 
   const handleUpload = useCallback((dataUrl: string) => {
-    setPlan((prev) => ({
-      ...prev,
-      imageDataUrl: dataUrl,
-      pixelsPerInch: null,
-      items: [],
-    }));
+    setPlan((prev) => {
+      const next = {
+        ...prev,
+        imageDataUrl: dataUrl,
+        pixelsPerInch: null,
+        items: [],
+      };
+      setBaselineState(next);
+      return next;
+    });
+    setActivePlanId(null);
+    setActivePlanName(null);
     setSelectedId(null);
     setToolMode("calibrate");
     setCalibration({ start: null, end: null });
@@ -176,15 +302,50 @@ export default function App() {
     setCalibration({ start: null, end: null });
   }, []);
 
+  const handleDeleteSavedPlan = useCallback(
+    (id: string) => {
+      const meta = savedPlans.find((p) => p.id === id);
+      if (!meta) return;
+      if (!window.confirm(`Delete saved plan "${meta.name}"?`)) return;
+      const result = deleteSavedPlan(id);
+      if (!result.ok) {
+        setStorageError(result.error);
+        return;
+      }
+      if (activePlanId === id) {
+        setActivePlanId(null);
+        setActivePlanName(null);
+      }
+      refreshSavedPlans();
+    },
+    [savedPlans, activePlanId, refreshSavedPlans],
+  );
+
   const canPlace = Boolean(plan.imageDataUrl && plan.pixelsPerInch);
 
   return (
     <div className="app">
+      {storageError && (
+        <div className="storage-error" role="alert">
+          <span>{storageError.message}</span>
+          <button
+            type="button"
+            className="storage-error-dismiss"
+            aria-label="Dismiss error"
+            onClick={() => setStorageError(null)}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       <TopBar
         unitSystem={plan.unitSystem}
         toolMode={toolMode}
         hasImage={Boolean(plan.imageDataUrl)}
         pixelsPerInch={plan.pixelsPerInch}
+        activePlanName={activePlanName}
+        isDirty={isDirty}
         onUnitSystemChange={(unitSystem: UnitSystem) => updatePlan({ unitSystem })}
         onUpload={handleUpload}
         onToolModeChange={(mode) => {
@@ -194,12 +355,19 @@ export default function App() {
             setPendingLinePx(null);
           }
         }}
+        onSave={handleSave}
+        onSaveAs={handleSaveAs}
+        onOpen={requestOpenLibrary}
         onClearLayout={() => {
           updatePlan({ items: [] });
           setSelectedId(null);
         }}
         onClearAll={() => {
-          setPlan({ ...DEFAULT_STATE, unitSystem: plan.unitSystem });
+          const next = { ...DEFAULT_STATE, unitSystem: plan.unitSystem };
+          setPlan(next);
+          setBaselineState(next);
+          setActivePlanId(null);
+          setActivePlanName(null);
           setSelectedId(null);
           setToolMode("select");
           setCalibration({ start: null, end: null });
@@ -304,6 +472,52 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {libraryModal && (
+        <PlanLibraryModal
+          mode={libraryModal}
+          plans={savedPlans}
+          initialName={activePlanName ?? ""}
+          currentPlanName={activePlanName}
+          onOpen={openPlanById}
+          onSaveAs={(name) => {
+            const id = activePlanId ?? createId();
+            if (persistCurrentPlan(id, name)) {
+              setLibraryModal(null);
+              if (pendingAction === "open") {
+                setPendingAction(null);
+                setLibraryModal("open");
+              }
+            }
+          }}
+          onSaveAndContinue={() => {
+            if (activePlanId && activePlanName) {
+              if (!persistCurrentPlan(activePlanId, activePlanName)) return;
+            } else {
+              setLibraryModal("save-as");
+              return;
+            }
+            setLibraryModal(null);
+            if (pendingAction === "open") {
+              setPendingAction(null);
+              setLibraryModal("open");
+            }
+          }}
+          onDiscard={() => {
+            setPlan(baselineState);
+            setLibraryModal(null);
+            if (pendingAction === "open") {
+              setPendingAction(null);
+              setLibraryModal("open");
+            }
+          }}
+          onDelete={libraryModal === "open" ? handleDeleteSavedPlan : undefined}
+          onClose={() => {
+            setLibraryModal(null);
+            setPendingAction(null);
+          }}
+        />
       )}
     </div>
   );
