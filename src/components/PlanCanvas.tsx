@@ -351,7 +351,7 @@ export function PlanCanvas({
                 y={wall.start.y}
                 radius={5 / scale}
                 fill="#3d5a5b"
-                draggable={!isPanning && !isCalibrating}
+                draggable={!isPanning && !isCalibrating && !isDrawingWall}
                 onDragEnd={(ev) => {
                   onWallChange(wall.id, {
                     start: { x: ev.target.x(), y: ev.target.y() },
@@ -363,7 +363,7 @@ export function PlanCanvas({
                 y={wall.end.y}
                 radius={5 / scale}
                 fill="#3d5a5b"
-                draggable={!isPanning && !isCalibrating}
+                draggable={!isPanning && !isCalibrating && !isDrawingWall}
                 onDragEnd={(ev) => {
                   onWallChange(wall.id, {
                     end: { x: ev.target.x(), y: ev.target.y() },
@@ -384,6 +384,7 @@ export function PlanCanvas({
     conversionPreview,
     isPanning,
     isCalibrating,
+    isDrawingWall,
     onSelectWall,
     onSelect,
     onWallChange,

@@ -222,13 +222,15 @@ function extractLineSegments(
     let runStart = 0;
     for (let i = 1; i <= onLine.length; i++) {
       const gap = i < onLine.length ? onLine[i].t - onLine[i - 1].t : Infinity;
-      if (gap > 10 && i - runStart >= 4) {
-        const slice = onLine.slice(runStart, i);
-        const start = slice[0];
-        const end = slice[slice.length - 1];
-        const seg = { start: { x: start.x, y: start.y }, end: { x: end.x, y: end.y } };
-        if (segmentLength(seg) >= MIN_SEGMENT_PX) {
-          segments.push({ ...seg, angle: segmentAngle(seg.start, seg.end) });
+      if (gap > 10) {
+        if (i - runStart >= 4) {
+          const slice = onLine.slice(runStart, i);
+          const start = slice[0];
+          const end = slice[slice.length - 1];
+          const seg = { start: { x: start.x, y: start.y }, end: { x: end.x, y: end.y } };
+          if (segmentLength(seg) >= MIN_SEGMENT_PX) {
+            segments.push({ ...seg, angle: segmentAngle(seg.start, seg.end) });
+          }
         }
         runStart = i;
       }
