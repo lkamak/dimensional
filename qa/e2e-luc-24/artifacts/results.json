@@ -1,0 +1,83 @@
+{
+  "issue": "LUC-24",
+  "pr": "https://github.com/lkamak/dimensional/pull/3",
+  "commit": "73b159b500972cb10869084d719881470ac55aa1",
+  "timestamp": "2026-07-08T21:14:50.702Z",
+  "results": [
+    {
+      "id": "AC1",
+      "criterion": "User can save the current plan including furniture additions under a name",
+      "pass": true,
+      "detail": "Header shows: dimensional | floor plan | Living Room A | Upload plan | Calibrate | Scale set · 1 in = 25.9 px | Open | Save | Save as | ft / in | metric | Clear furniture | Reset"
+    },
+    {
+      "id": "AC1b",
+      "criterion": "Save updates the active named plan (dirty cleared)",
+      "pass": true,
+      "detail": "dirty=true; afterSave=dimensional | floor plan | Living Room A | Upload plan | Calibrate | Scale set · 1 in = 25.9 px | Open | Save | Save as | ft / in | metric | Clear furniture | Reset"
+    },
+    {
+      "id": "AC3",
+      "criterion": "Multiple named saves can coexist without overwriting each other",
+      "pass": false,
+      "detail": "FAIL: Save as reused activePlanId and renamed/overwrote the only library entry. before=[{\"id\":\"0e2d90da-841e-48eb-aca6-b422d1f9dea8\",\"name\":\"Living Room A\"}] after=[{\"id\":\"0e2d90da-841e-48eb-aca6-b422d1f9dea8\",\"name\":\"Office Layout B\"}]. Open list: Open saved plan |  | Choose a saved layout to open. Furniture, scale, and units are restored. |  | Office Layout B | Updated Jul 8, 2026, 9:14 PM | Delete | Cancel"
+    },
+    {
+      "id": "AC3b",
+      "criterion": "Multiple named saves via Reset + Save as (secondary path)",
+      "pass": true,
+      "detail": "names=[\"Living Room A\",\"Office Layout B\"]"
+    },
+    {
+      "id": "AC2",
+      "criterion": "User can open a previously saved plan and restore image/drawing, scale, units, and furniture",
+      "pass": true,
+      "detail": "header=dimensional | floor plan | Office Layout B | Upload plan | Calibrate | Scale set · 1 in = 25.9 px | Open | Save | Save as | ft / in | metric | Clear furniture | Reset; stored={\"name\":\"Office Layout B\",\"itemCount\":2,\"hasImage\":true,\"pixelsPerInch\":25.925925925925924,\"unitSystem\":\"imperial\",\"sessionItems\":2,\"sessionPpi\":25.925925925925924,\"sessionName\":\"Office Layout B\"}"
+    },
+    {
+      "id": "AC4",
+      "criterion": "Switching plans prompts or safely handles unsaved changes",
+      "pass": true,
+      "detail": "dirty=true; prompt=Unsaved changes |  | \"Office Layout B\" has unsaved changes. Save before switching plans? |  | Cancel | Discard | Save & continue; cancelKept=true; switched=true"
+    },
+    {
+      "id": "AC5",
+      "criterion": "Storage failures (quota) surface a clear error instead of silent data loss",
+      "pass": true,
+      "detail": "Storage is full. Remove older saved plans or use a smaller floor plan image. | ×"
+    }
+  ],
+  "prdCriteria": [
+    {
+      "id": "AC1",
+      "criterion": "User can save the current plan including furniture additions under a name",
+      "pass": true,
+      "detail": "Header shows: dimensional | floor plan | Living Room A | Upload plan | Calibrate | Scale set · 1 in = 25.9 px | Open | Save | Save as | ft / in | metric | Clear furniture | Reset"
+    },
+    {
+      "id": "AC3",
+      "criterion": "Multiple named saves can coexist without overwriting each other",
+      "pass": false,
+      "detail": "FAIL: Save as reused activePlanId and renamed/overwrote the only library entry. before=[{\"id\":\"0e2d90da-841e-48eb-aca6-b422d1f9dea8\",\"name\":\"Living Room A\"}] after=[{\"id\":\"0e2d90da-841e-48eb-aca6-b422d1f9dea8\",\"name\":\"Office Layout B\"}]. Open list: Open saved plan |  | Choose a saved layout to open. Furniture, scale, and units are restored. |  | Office Layout B | Updated Jul 8, 2026, 9:14 PM | Delete | Cancel"
+    },
+    {
+      "id": "AC2",
+      "criterion": "User can open a previously saved plan and restore image/drawing, scale, units, and furniture",
+      "pass": true,
+      "detail": "header=dimensional | floor plan | Office Layout B | Upload plan | Calibrate | Scale set · 1 in = 25.9 px | Open | Save | Save as | ft / in | metric | Clear furniture | Reset; stored={\"name\":\"Office Layout B\",\"itemCount\":2,\"hasImage\":true,\"pixelsPerInch\":25.925925925925924,\"unitSystem\":\"imperial\",\"sessionItems\":2,\"sessionPpi\":25.925925925925924,\"sessionName\":\"Office Layout B\"}"
+    },
+    {
+      "id": "AC4",
+      "criterion": "Switching plans prompts or safely handles unsaved changes",
+      "pass": true,
+      "detail": "dirty=true; prompt=Unsaved changes |  | \"Office Layout B\" has unsaved changes. Save before switching plans? |  | Cancel | Discard | Save & continue; cancelKept=true; switched=true"
+    },
+    {
+      "id": "AC5",
+      "criterion": "Storage failures (quota) surface a clear error instead of silent data loss",
+      "pass": true,
+      "detail": "Storage is full. Remove older saved plans or use a smaller floor plan image. | ×"
+    }
+  ],
+  "allPassed": false
+}
