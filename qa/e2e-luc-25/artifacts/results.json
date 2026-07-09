@@ -1,0 +1,66 @@
+{
+  "issue": "LUC-25",
+  "pr": 5,
+  "prd": "https://linear.app/lucaskamakura/issue/LUC-25/add-left-mouse-drag-to-pan-for-the-blueprint-canvas",
+  "commit": "3d50ec9ac47293a74435a826e04abd65e1d3a0d0",
+  "changeType": "frontend-only",
+  "results": [
+    {
+      "id": "AC9",
+      "criterion": "oxlint passes with no new warnings",
+      "pass": true,
+      "detail": "> dimensional@0.0.0 lint\n> oxlint"
+    },
+    {
+      "id": "AC1",
+      "criterion": "In select mode, left-mouse drag on empty canvas/underlay pans; release ends pan",
+      "pass": true,
+      "detail": "delta=166.4px; before={\"x\":48,\"y\":100,\"scale\":1.08,\"draggable\":true,\"cursor\":\"grab\"}; after={\"x\":188,\"y\":190,\"scale\":1.08,\"draggable\":true,\"cursor\":\"grab\"}; startHit=Image"
+    },
+    {
+      "id": "AC7",
+      "criterion": "Cursor shows grab over pannable empty canvas and grabbing while actively dragging",
+      "pass": true,
+      "detail": "idle=grab; dragging=grabbing; onFurniture=move"
+    },
+    {
+      "id": "AC5",
+      "criterion": "Clicking/tapping to select furniture or walls still works",
+      "pass": true,
+      "detail": "selectedLabel=Sofa; walls=N/A (no wall endpoints / draw_wall in this MVP)"
+    },
+    {
+      "id": "AC3",
+      "criterion": "Plain left-click (no drag) on empty canvas still deselects",
+      "pass": true,
+      "detail": "inspectorEmpty=true; clickHit=Image"
+    },
+    {
+      "id": "AC2",
+      "criterion": "Panning works together with wheel zoom with no transform jumps",
+      "pass": true,
+      "detail": "zoom 1.080→1.145; panAfterZoom=true; final={\"x\":124.22641509433963,\"y\":153.96226415094338,\"scale\":1.08,\"draggable\":true,\"cursor\":\"grab\"}"
+    },
+    {
+      "id": "AC4",
+      "criterion": "Dragging furniture (or wall endpoint) moves that item and does not pan the canvas",
+      "pass": true,
+      "detail": "itemMoved=true; stageDelta=0.00; wallEndpoints=N/A"
+    },
+    {
+      "id": "AC8",
+      "criterion": "Existing Space-hold-to-pan still works",
+      "pass": true,
+      "detail": "delta=(120.0, 70.0)"
+    },
+    {
+      "id": "AC6",
+      "criterion": "calibrate and draw_wall modes unaffected: click-to-place works; left-drag does not pan",
+      "pass": true,
+      "detail": "noPan=true; modal=true; calibrated=true; draw_wall=N/A (not in ToolMode union)"
+    }
+  ],
+  "passed": 9,
+  "failed": 0,
+  "verdict": "APPROVE"
+}
