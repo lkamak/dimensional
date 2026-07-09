@@ -96,6 +96,7 @@ export function PlanCanvas({
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [spaceDown, setSpaceDown] = useState(false);
+  const [isDraggingStage, setIsDraggingStage] = useState(false);
   const image = useHtmlImage(imageDataUrl);
   const fittedRef = useRef<string | null>(null);
 
@@ -151,6 +152,24 @@ export function PlanCanvas({
 
   const isPanning = toolMode === "pan" || spaceDown;
   const isCalibrating = toolMode === "calibrate";
+  const isStageDraggable =
+    (toolMode === "select" || isPanning) && !isCalibrating;
+
+  const stageCursor = isDraggingStage
+    ? "grabbing"
+    : isStageDraggable
+      ? "grab"
+      : isCalibrating
+        ? "crosshair"
+        : "default";
+
+  const isEmptyCanvasTarget = (target: Konva.Node) => {
+    const stage = stageRef.current;
+    return (
+      stage !== null &&
+      (target === stage || target.getClassName() === "Image")
+    );
+  };
 
   const pointerWorld = (stage: Konva.Stage) => {
     const pointer = stage.getPointerPosition();
@@ -189,7 +208,7 @@ export function PlanCanvas({
     });
   };
 
-  const handleStageMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+  const handleStageMouseDown = () => {
     if (isPanning) return;
     const stage = stageRef.current;
     if (!stage) return;
@@ -207,10 +226,44 @@ export function PlanCanvas({
       return;
     }
 
-    // Click empty stage → deselect
-    if (e.target === stage || e.target.getClassName() === "Image") {
+  };
+
+  const handleStageClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (isPanning || isCalibrating) return;
+    if (isEmptyCanvasTarget(e.target)) {
       onSelect(null);
     }
+  };
+
+  const handleStageTap = (e: Konva.KonvaEventObject<TouchEvent>) => {
+    if (isPanning || isCalibrating) return;
+    if (isEmptyCanvasTarget(e.target)) {
+      onSelect(null);
+    }
+  };
+
+  const handleStageDragStart = (e: Konva.KonvaEventObject<DragEvent>) => {
+    if (e.target === stageRef.current) {
+      setIsDraggingStage(true);
+    }
+  };
+
+  const handleStageDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
+    if (e.target === stageRef.current) {
+      setPosition({ x: e.target.x(), y: e.target.y() });
+    }
+  };
+
+  const handleStageDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
+    if (e.target === stageRef.current) {
+      setPosition({ x: e.target.x(), y: e.target.y() });
+      setIsDraggingStage(false);
+    }
+  };
+
+  const setContainerCursor = (cursor: string) => {
+    const container = stageRef.current?.container();
+    if (container) container.style.cursor = cursor;
   };
 
   const handleStageMouseMove = () => {
@@ -272,6 +325,16 @@ export function PlanCanvas({
           offsetX={w / 2}
           offsetY={h / 2}
           draggable={!isCalibrating && !isPanning}
+          onMouseEnter={() => {
+            if (toolMode === "select" && !isPanning) {
+              setContainerCursor("move");
+            }
+          }}
+          onMouseLeave={() => {
+            if (toolMode === "select" && !isPanning) {
+              setContainerCursor(stageCursor);
+            }
+          }}
           onClick={(e) => {
             e.cancelBubble = true;
             onSelect(item.id);
@@ -339,6 +402,8 @@ export function PlanCanvas({
     selectedId,
     isCalibrating,
     isPanning,
+    toolMode,
+    stageCursor,
     onSelect,
     onItemChange,
     scale,
@@ -355,17 +420,17 @@ export function PlanCanvas({
         scaleY={scale}
         x={position.x}
         y={position.y}
-        draggable={isPanning}
-        onDragEnd={(e) => {
-          if (e.target === stageRef.current) {
-            setPosition({ x: e.target.x(), y: e.target.y() });
-          }
-        }}
+        draggable={isStageDraggable}
+        onDragStart={handleStageDragStart}
+        onDragMove={handleStageDragMove}
+        onDragEnd={handleStageDragEnd}
         onWheel={handleWheel}
         onMouseDown={handleStageMouseDown}
         onMouseMove={handleStageMouseMove}
+        onClick={handleStageClick}
+        onTap={handleStageTap}
         style={{
-          cursor: isPanning ? "grab" : isCalibrating ? "crosshair" : "default",
+          cursor: stageCursor,
         }}
       >
         <Layer>
