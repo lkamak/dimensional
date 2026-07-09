@@ -97,6 +97,8 @@ export function PlanCanvas({
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [spaceDown, setSpaceDown] = useState(false);
   const [isDraggingStage, setIsDraggingStage] = useState(false);
+  const isDraggingStageRef = useRef(false);
+  const isDraggingFurnitureRef = useRef(false);
   const image = useHtmlImage(imageDataUrl);
   const fittedRef = useRef<string | null>(null);
 
@@ -244,6 +246,7 @@ export function PlanCanvas({
 
   const handleStageDragStart = (e: Konva.KonvaEventObject<DragEvent>) => {
     if (e.target === stageRef.current) {
+      isDraggingStageRef.current = true;
       setIsDraggingStage(true);
     }
   };
@@ -257,6 +260,7 @@ export function PlanCanvas({
   const handleStageDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
     if (e.target === stageRef.current) {
       setPosition({ x: e.target.x(), y: e.target.y() });
+      isDraggingStageRef.current = false;
       setIsDraggingStage(false);
     }
   };
@@ -326,12 +330,16 @@ export function PlanCanvas({
           offsetY={h / 2}
           draggable={!isCalibrating && !isPanning}
           onMouseEnter={() => {
-            if (toolMode === "select" && !isPanning) {
+            const isDragActive =
+              isDraggingStageRef.current || isDraggingFurnitureRef.current;
+            if (toolMode === "select" && !isPanning && !isDragActive) {
               setContainerCursor("move");
             }
           }}
           onMouseLeave={() => {
-            if (toolMode === "select" && !isPanning) {
+            const isDragActive =
+              isDraggingStageRef.current || isDraggingFurnitureRef.current;
+            if (toolMode === "select" && !isPanning && !isDragActive) {
               setContainerCursor(stageCursor);
             }
           }}
@@ -343,7 +351,11 @@ export function PlanCanvas({
             e.cancelBubble = true;
             onSelect(item.id);
           }}
+          onDragStart={() => {
+            isDraggingFurnitureRef.current = true;
+          }}
           onDragEnd={(e) => {
+            isDraggingFurnitureRef.current = false;
             onItemChange(item.id, {
               x: e.target.x(),
               y: e.target.y(),
