@@ -514,7 +514,7 @@ export default function App() {
           currentPlanName={activePlanName}
           onOpen={openPlanById}
           onSaveAs={(name) => {
-            const id = activePlanId ?? createId();
+            const id = createId();
             if (persistCurrentPlan(id, name)) {
               setLibraryModal(null);
               if (pendingAction === "open") {
