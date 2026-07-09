@@ -1,0 +1,74 @@
+{
+  "commit": "bf603bf",
+  "prd": "LUC-25",
+  "criteria": {
+    "AC9": {
+      "id": "AC9",
+      "status": "PASS",
+      "detail": "oxlint passed with no warnings"
+    },
+    "setup-calibrate": {
+      "id": "setup-calibrate",
+      "status": "PASS",
+      "detail": "Scale set · 1 in = 2.7 px"
+    },
+    "setup-furniture": {
+      "id": "setup-furniture",
+      "status": "PASS",
+      "detail": "Sofa at (240.0, 180.0)"
+    },
+    "AC7a": {
+      "id": "AC7a",
+      "status": "PASS",
+      "detail": "Cursor is grab over empty canvas"
+    },
+    "AC1": {
+      "id": "AC1",
+      "status": "PASS",
+      "detail": "Left-drag on empty canvas panned (Δx=180.0, Δy=120.0)"
+    },
+    "AC7b": {
+      "id": "AC7b",
+      "status": "PASS",
+      "detail": "Cursor is grabbing while dragging"
+    },
+    "AC2": {
+      "id": "AC2",
+      "status": "PASS",
+      "detail": "Zoom 1.500→2.128 then pan Δ=(120.0, 90.0)"
+    },
+    "AC5": {
+      "id": "AC5",
+      "status": "PASS",
+      "detail": "Clicking furniture selects it (inspector editable)"
+    },
+    "AC3": {
+      "id": "AC3",
+      "status": "PASS",
+      "detail": "Plain left-click on empty canvas deselected"
+    },
+    "AC4": {
+      "id": "AC4",
+      "status": "PASS",
+      "detail": "Furniture moved 57.4px world; stage stable (Δ=0.0)"
+    },
+    "AC6": {
+      "id": "AC6",
+      "status": "PASS",
+      "detail": "Calibrate: stage not draggable, drag did not pan (Δ=0.0); click-to-place works (circles after 1st=1)"
+    },
+    "AC6-draw_wall": {
+      "id": "AC6-draw_wall",
+      "status": "SKIP",
+      "detail": "draw_wall tool not present in this branch (ToolMode: select|calibrate|pan); calibrate covers non-select placement"
+    },
+    "AC8": {
+      "id": "AC8",
+      "status": "PASS",
+      "detail": "Space-hold pan works (Δ=152.6, cursor=grab)"
+    }
+  },
+  "passCount": 12,
+  "failCount": 0,
+  "skipCount": 1
+}
