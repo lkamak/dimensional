@@ -14,6 +14,7 @@ import {
   listSavedPlans,
   loadSavedPlan,
   loadSessionSnapshot,
+  planStateWithoutFurniture,
   planStatesEqual,
   savePlanToLibrary,
   saveSessionSnapshot,
@@ -32,7 +33,12 @@ import type {
 import { hasActivePlan } from "./types";
 import { displayValueToInches, unitLabel } from "./units";
 
-type LibraryModalMode = "open" | "save-as" | "unsaved" | null;
+type LibraryModalMode =
+  | "open"
+  | "save-as"
+  | "save-clean-as"
+  | "unsaved"
+  | null;
 
 function createId(): string {
   return crypto.randomUUID();
@@ -193,6 +199,10 @@ export default function App() {
   const handleSave = useCallback(() => {
     if (!hasActivePlan(plan)) return;
     if (activePlanId && activePlanName) {
+      if (loadSavedPlan(activePlanId)?.kind === "clean") {
+        setLibraryModal("save-as");
+        return;
+      }
       persistCurrentPlan(activePlanId, activePlanName);
       return;
     }
@@ -203,6 +213,29 @@ export default function App() {
     if (!hasActivePlan(plan)) return;
     setLibraryModal("save-as");
   }, [plan]);
+
+  const handleSaveCleanAs = useCallback(() => {
+    if (!hasActivePlan(plan)) return;
+    setLibraryModal("save-clean-as");
+  }, [plan]);
+
+  const saveCleanPlanCopy = useCallback(
+    (name: string) => {
+      const result = savePlanToLibrary(
+        createId(),
+        name,
+        planStateWithoutFurniture(plan),
+        "clean",
+      );
+      if (!result.ok) {
+        setStorageError(result.error);
+        return false;
+      }
+      refreshSavedPlans();
+      return true;
+    },
+    [plan, refreshSavedPlans],
+  );
 
   const openPlanById = useCallback(
     (id: string) => {
@@ -420,6 +453,7 @@ export default function App() {
         }}
         onSave={handleSave}
         onSaveAs={handleSaveAs}
+        onSaveCleanAs={handleSaveCleanAs}
         onOpen={requestOpenLibrary}
         onClearLayout={() => {
           updatePlan({ items: [] });
@@ -560,6 +594,12 @@ export default function App() {
           currentPlanName={activePlanName}
           onOpen={openPlanById}
           onSaveAs={(name) => {
+            if (libraryModal === "save-clean-as") {
+              if (saveCleanPlanCopy(name)) {
+                setLibraryModal(null);
+              }
+              return;
+            }
             const id = createId();
             if (persistCurrentPlan(id, name)) {
               setLibraryModal(null);

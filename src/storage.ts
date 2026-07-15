@@ -2,6 +2,7 @@ import type {
   DrawElement,
   PlanState,
   SavedPlan,
+  SavedPlanKind,
   SavedPlanMeta,
   SessionSnapshot,
   StorageError,
@@ -101,6 +102,10 @@ export function planStatesEqual(a: PlanState, b: PlanState): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+export function planStateWithoutFurniture(state: PlanState): PlanState {
+  return normalizePlanState({ ...state, items: [] });
+}
+
 export function loadSessionSnapshot(): LoadedSessionSnapshot {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
@@ -170,16 +175,27 @@ export function listSavedPlans(): SavedPlanMeta[] {
   try {
     const raw = localStorage.getItem(LIBRARY_INDEX_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as { plans?: SavedPlanMeta[] };
+    const parsed = JSON.parse(raw) as {
+      plans?: Partial<SavedPlanMeta>[];
+    };
     if (!Array.isArray(parsed.plans)) return [];
     return parsed.plans
       .filter(
-        (p) =>
-          p &&
+        (
+          p,
+        ): p is Partial<SavedPlanMeta> &
+          Pick<SavedPlanMeta, "id" | "name" | "updatedAt"> =>
+          p != null &&
           typeof p.id === "string" &&
           typeof p.name === "string" &&
           typeof p.updatedAt === "string",
       )
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        updatedAt: p.updatedAt,
+        kind: p.kind === "clean" ? "clean" : "full",
+      }))
       .sort(
         (a, b) =>
           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
@@ -209,6 +225,7 @@ export function loadSavedPlan(id: string): SavedPlan | null {
       id: parsed.id,
       name: parsed.name,
       updatedAt: parsed.updatedAt,
+      kind: parsed.kind === "clean" ? "clean" : "full",
       state: normalizePlanState(parsed.state),
     };
   } catch {
@@ -220,6 +237,7 @@ export function savePlanToLibrary(
   id: string,
   name: string,
   state: PlanState,
+  kind: SavedPlanKind = "full",
 ): StorageResult<SavedPlan> {
   const trimmedName = name.trim();
   if (!trimmedName) {
@@ -237,6 +255,7 @@ export function savePlanToLibrary(
     id,
     name: trimmedName,
     updatedAt,
+    kind,
     state: normalizePlanState(state),
   };
 
@@ -245,7 +264,7 @@ export function savePlanToLibrary(
 
   const index = listSavedPlans();
   const nextIndex = [
-    { id, name: trimmedName, updatedAt },
+    { id, name: trimmedName, updatedAt, kind },
     ...index.filter((p) => p.id !== id),
   ];
   const indexResult = writeLibraryIndex(nextIndex);

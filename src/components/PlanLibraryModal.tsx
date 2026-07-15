@@ -3,7 +3,7 @@ import type { SavedPlanMeta } from "../types";
 import styles from "./PlanLibraryModal.module.css";
 
 type PlanLibraryModalProps = {
-  mode: "open" | "save-as" | "unsaved";
+  mode: "open" | "save-as" | "save-clean-as" | "unsaved";
   plans: SavedPlanMeta[];
   initialName?: string;
   currentPlanName?: string | null;
@@ -50,16 +50,20 @@ export function PlanLibraryModal({
       ? "Open saved plan"
       : mode === "save-as"
         ? "Save plan as"
-        : "Unsaved changes";
+        : mode === "save-clean-as"
+          ? "Save clean copy"
+          : "Unsaved changes";
 
   const description =
     mode === "open"
-      ? "Choose a saved layout to open. Furniture, scale, and units are restored."
+      ? "Choose a saved plan. Full layouts restore furniture; clean bases restore the plan, scale, and drawing only."
       : mode === "save-as"
         ? "Save the current floor plan with all furniture under a name."
-        : currentPlanName
-          ? `"${currentPlanName}" has unsaved changes. Save before switching plans?`
-          : "This plan has unsaved changes. Save before switching plans?";
+        : mode === "save-clean-as"
+          ? "Save a reusable copy of the plan, scale, and drawing without furniture."
+          : currentPlanName
+            ? `"${currentPlanName}" has unsaved changes. Save before switching plans?`
+            : "This plan has unsaved changes. Save before switching plans?";
 
   return (
     <div
@@ -94,7 +98,7 @@ export function PlanLibraryModal({
               Save & continue
             </button>
           </div>
-        ) : mode === "save-as" ? (
+        ) : mode === "save-as" || mode === "save-clean-as" ? (
           <>
             <div className="modal-field">
               <label htmlFor="plan-name">Plan name</label>
@@ -103,7 +107,11 @@ export function PlanLibraryModal({
                 type="text"
                 autoFocus
                 maxLength={80}
-                placeholder="e.g. Living room layout"
+                placeholder={
+                  mode === "save-clean-as"
+                    ? "e.g. Living room clean base"
+                    : "e.g. Living room layout"
+                }
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => {
@@ -121,13 +129,16 @@ export function PlanLibraryModal({
                 disabled={!name.trim()}
                 onClick={() => onSaveAs(name)}
               >
-                Save
+                {mode === "save-clean-as" ? "Save clean copy" : "Save"}
               </button>
             </div>
           </>
         ) : plans.length === 0 ? (
           <>
-            <p className={styles.empty}>No saved plans yet. Use Save or Save as to create one.</p>
+            <p className={styles.empty}>
+              No saved plans yet. Use Save, Save as, or Save clean copy to create
+              one.
+            </p>
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" onClick={onClose}>
                 Close
@@ -147,6 +158,7 @@ export function PlanLibraryModal({
                     <span className={styles.listItemMain}>
                       <span className={styles.listItemName}>{plan.name}</span>
                       <span className={styles.listItemMeta}>
+                        {plan.kind === "clean" ? "Clean base" : "Full layout"} ·
                         Updated {formatUpdatedAt(plan.updatedAt)}
                       </span>
                     </span>

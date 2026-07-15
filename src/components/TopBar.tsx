@@ -15,6 +15,7 @@ type TopBarProps = {
   onToolModeChange: (mode: ToolMode) => void;
   onSave: () => void;
   onSaveAs: () => void;
+  onSaveCleanAs: () => void;
   onOpen: () => void;
   onClearLayout: () => void;
   onClearAll: () => void;
@@ -40,6 +41,7 @@ export function TopBar({
   onToolModeChange,
   onSave,
   onSaveAs,
+  onSaveCleanAs,
   onOpen,
   onClearLayout,
   onClearAll,
@@ -164,6 +166,15 @@ export function TopBar({
           onClick={onSaveAs}
         >
           Save as
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          disabled={!hasPlan}
+          onClick={onSaveCleanAs}
+          title="Save the plan, scale, and drawing without furniture"
+        >
+          Save clean copy
         </button>
 
         <div className={styles.divider} />
