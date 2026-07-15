@@ -41,10 +41,13 @@ export type PlanState = {
   elements: DrawElement[];
 };
 
+export type SavedPlanKind = "full" | "clean";
+
 export type SavedPlanMeta = {
   id: string;
   name: string;
   updatedAt: string;
+  kind: SavedPlanKind;
 };
 
 export type SavedPlan = SavedPlanMeta & {
