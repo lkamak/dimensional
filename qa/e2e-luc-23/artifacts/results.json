@@ -1,0 +1,36 @@
+{
+  "commit": "9ae7b7f",
+  "allPass": true,
+  "results": [
+    {
+      "id": "AC1",
+      "criterion": "User can save or duplicate the current floor plan without furniture items",
+      "pass": true,
+      "detail": "clean={\"id\":\"3c4f5426-ec8f-4a68-a14d-7e75d26ace00\",\"name\":\"Living Room Clean Base\",\"kind\":\"clean\",\"itemCount\":0,\"hasImage\":true,\"pixelsPerInch\":25.952380952380953,\"unitSystem\":\"imperial\",\"elementCount\":1}; fullItems=2"
+    },
+    {
+      "id": "AC4",
+      "criterion": "Full saves (with furniture) and clean-base saves are distinguishable in the plan list",
+      "pass": true,
+      "detail": "Open saved plan | Choose a saved plan. Full layouts restore furniture; clean bases restore the plan, scale, and drawing only. | Living Room Clean Base | Clean base · Updated Jul 15, 2026, 3:40 PM | Delete | Full Living Room | Full layout · Updated Jul 15, 2026, 3:40 PM | Delete | Cancel"
+    },
+    {
+      "id": "AC2",
+      "criterion": "Opening a clean-base save restores plan + scale (and drawing if present) with an empty furniture list",
+      "pass": true,
+      "detail": "session={\"activePlanId\":\"3c4f5426-ec8f-4a68-a14d-7e75d26ace00\",\"activePlanName\":\"Living Room Clean Base\",\"itemCount\":0,\"hasImage\":true,\"pixelsPerInch\":25.952380952380953,\"elementCount\":1}; header=dimensional | floor plan | Living Room Clean Base | Upload plan | Draw plan | Select | Wall | Room | Line | Rect | Calibrate | Scale set · 1 in = 26.0 px | Open | Save | Save as | Save clean copy | ft / in | metric | Clear furniture | Reset"
+    },
+    {
+      "id": "AC3",
+      "criterion": "User can create multiple layout experiments from the same clean base without overwriting the base",
+      "pass": true,
+      "detail": "routedToSaveAs=true; base={\"id\":\"3c4f5426-ec8f-4a68-a14d-7e75d26ace00\",\"name\":\"Living Room Clean Base\",\"kind\":\"clean\",\"itemCount\":0,\"hasImage\":true,\"pixelsPerInch\":25.952380952380953,\"unitSystem\":\"imperial\",\"elementCount\":1}; L1=1; L2=2; reopenedItems=0"
+    },
+    {
+      "id": "AC5",
+      "criterion": "Existing \"Clear furniture\" / \"Reset\" behaviors remain available and clearly distinct",
+      "pass": true,
+      "detail": "clearVisible=true; resetVisible=true; clearWorked=true; resetWorked=true; baseAfter={\"id\":\"3c4f5426-ec8f-4a68-a14d-7e75d26ace00\",\"name\":\"Living Room Clean Base\",\"kind\":\"clean\",\"itemCount\":0,\"hasImage\":true,\"pixelsPerInch\":25.952380952380953,\"unitSystem\":\"imperial\",\"elementCount\":1}"
+    }
+  ]
+}
