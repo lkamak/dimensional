@@ -20,27 +20,59 @@ export type FurnitureItem = {
   rotation: number;
 };
 
-export type Point = {
-  x: number;
-  y: number;
-};
+export type DrawElementKind = "wall" | "room" | "line" | "rect";
 
-/** Editable wall segment in image pixel coordinates. */
-export type WallSegment = {
+export type DrawElement = {
   id: string;
-  start: Point;
-  end: Point;
+  kind: DrawElementKind;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
 };
 
 export type PlanState = {
   imageDataUrl: string | null;
+  canvasWidth: number | null;
+  canvasHeight: number | null;
   pixelsPerInch: number | null;
   unitSystem: UnitSystem;
   items: FurnitureItem[];
-  walls: WallSegment[];
+  elements: DrawElement[];
+  /** When an image is present, whether it is shown beneath drawings. */
   imageUnderlayVisible: boolean;
+  /** Image underlay opacity in [0, 1]; lowered after convert-to-drawing. */
   imageUnderlayOpacity: number;
 };
+
+export type SavedPlanMeta = {
+  id: string;
+  name: string;
+  updatedAt: string;
+};
+
+export type SavedPlan = SavedPlanMeta & {
+  state: PlanState;
+};
+
+export type SessionSnapshot = {
+  plan: PlanState;
+  activePlanId: string | null;
+  activePlanName: string | null;
+  baselineState: PlanState;
+};
+
+export type StorageError = {
+  type: "quota_exceeded" | "unavailable";
+  message: string;
+};
+
+export type StorageResult<T = void> =
+  | { ok: true; value: T }
+  | { ok: false; error: StorageError };
+
+export const DEFAULT_CANVAS_WIDTH = 1200;
+export const DEFAULT_CANVAS_HEIGHT = 900;
 
 export type CatalogPreset = {
   kind: FurnitureKind;
@@ -49,14 +81,34 @@ export type CatalogPreset = {
   depthIn: number;
 };
 
-export type ToolMode = "select" | "calibrate" | "pan" | "draw_wall";
+export type ToolMode =
+  | "select"
+  | "calibrate"
+  | "pan"
+  | "draw-wall"
+  | "draw-room"
+  | "draw-line"
+  | "draw-rect";
+
+export type DrawToolMode = Extract<
+  ToolMode,
+  "draw-wall" | "draw-room" | "draw-line" | "draw-rect"
+>;
 
 export type CalibrationDraft = {
   start: { x: number; y: number } | null;
   end: { x: number; y: number } | null;
 };
 
-export type WallDraft = {
-  start: Point | null;
-  end: Point | null;
-};
+export function isDrawTool(mode: ToolMode): mode is DrawToolMode {
+  return (
+    mode === "draw-wall" ||
+    mode === "draw-room" ||
+    mode === "draw-line" ||
+    mode === "draw-rect"
+  );
+}
+
+export function hasActivePlan(plan: PlanState): boolean {
+  return plan.imageDataUrl != null || plan.canvasWidth != null;
+}

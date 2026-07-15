@@ -1,4 +1,4 @@
-import type { Point } from "./types";
+type Point = { x: number; y: number };
 
 export type VectorizeResult = {
   walls: { start: Point; end: Point }[];

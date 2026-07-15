@@ -1,4 +1,4 @@
-import type { FurnitureItem, UnitSystem, WallSegment } from "../types";
+import type { DrawElement, FurnitureItem, UnitSystem } from "../types";
 import {
   displayValueToInches,
   formatLength,
@@ -9,52 +9,70 @@ import styles from "./Inspector.module.css";
 
 type InspectorProps = {
   item: FurnitureItem | null;
-  wall: WallSegment | null;
+  element: DrawElement | null;
   pixelsPerInch: number | null;
   unitSystem: UnitSystem;
   onChange: (id: string, patch: Partial<FurnitureItem>) => void;
   onDelete: (id: string) => void;
   onRotate: (id: string, delta: number) => void;
-  onDeleteWall: (id: string) => void;
+  onDeleteElement: (id: string) => void;
 };
 
-function wallLengthPx(wall: WallSegment): number {
-  return Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y);
+function elementLengthPx(el: DrawElement): number {
+  return Math.hypot(el.x2 - el.x1, el.y2 - el.y1);
+}
+
+function elementLabel(kind: DrawElement["kind"]): string {
+  switch (kind) {
+    case "wall":
+      return "Wall segment";
+    case "room":
+      return "Room";
+    case "line":
+      return "Line";
+    case "rect":
+      return "Rectangle";
+  }
 }
 
 export function Inspector({
   item,
-  wall,
+  element,
   pixelsPerInch,
   unitSystem,
   onChange,
   onDelete,
   onRotate,
-  onDeleteWall,
+  onDeleteElement,
 }: InspectorProps) {
-  if (wall) {
-    const lengthPx = wallLengthPx(wall);
+  if (element && !item) {
+    const lengthPx = elementLengthPx(element);
     const lengthIn = pixelsPerInch ? lengthPx / pixelsPerInch : null;
+    const isLineLike = element.kind === "wall" || element.kind === "line";
 
     return (
       <aside className={styles.inspector}>
-        <h2 className={styles.heading}>Wall segment</h2>
-        <p className={styles.sub}>
-          {lengthIn != null
-            ? formatLength(lengthIn, unitSystem)
-            : `${Math.round(lengthPx)} px`}
-          {lengthIn == null && pixelsPerInch == null
-            ? " (set scale to see real length)"
-            : ""}
-        </p>
+        <h2 className={styles.heading}>{elementLabel(element.kind)}</h2>
+        {isLineLike ? (
+          <p className={styles.sub}>
+            {lengthIn != null
+              ? formatLength(lengthIn, unitSystem)
+              : `${Math.round(lengthPx)} px`}
+            {lengthIn == null && pixelsPerInch == null
+              ? " (set scale to see real length)"
+              : ""}
+          </p>
+        ) : (
+          <p className={styles.sub}>Selected drawing element</p>
+        )}
 
         <div className={styles.actions}>
           <button
             type="button"
             className="btn btn-ghost btn-danger"
-            onClick={() => onDeleteWall(wall.id)}
+            onClick={() => onDeleteElement(element.id)}
           >
-            Delete wall
+            Delete
           </button>
         </div>
       </aside>
@@ -64,8 +82,8 @@ export function Inspector({
   if (!item) {
     return (
       <aside className={styles.empty}>
-        Select furniture or a wall to edit. Use Draw wall or Convert to drawing to
-        add editable geometry.
+        Select furniture or a drawing to edit. Use draw tools or Convert to
+        drawing to add editable geometry.
       </aside>
     );
   }

@@ -5,34 +5,55 @@ import styles from "./TopBar.module.css";
 type TopBarProps = {
   unitSystem: UnitSystem;
   toolMode: ToolMode;
+  hasPlan: boolean;
   hasImage: boolean;
   pixelsPerInch: number | null;
   hasWalls: boolean;
   imageUnderlayVisible: boolean;
   isConverting: boolean;
+  activePlanName: string | null;
+  isDirty: boolean;
   onUnitSystemChange: (system: UnitSystem) => void;
   onUpload: (dataUrl: string) => void;
+  onDrawPlan: () => void;
   onToolModeChange: (mode: ToolMode) => void;
   onConvert: () => void;
   onToggleUnderlay: () => void;
+  onSave: () => void;
+  onSaveAs: () => void;
+  onOpen: () => void;
   onClearLayout: () => void;
   onClearWalls: () => void;
   onClearAll: () => void;
 };
 
+const DRAW_TOOLS: { mode: ToolMode; label: string }[] = [
+  { mode: "draw-wall", label: "Wall" },
+  { mode: "draw-room", label: "Room" },
+  { mode: "draw-line", label: "Line" },
+  { mode: "draw-rect", label: "Rect" },
+];
+
 export function TopBar({
   unitSystem,
   toolMode,
+  hasPlan,
   hasImage,
   pixelsPerInch,
   hasWalls,
   imageUnderlayVisible,
   isConverting,
+  activePlanName,
+  isDirty,
   onUnitSystemChange,
   onUpload,
+  onDrawPlan,
   onToolModeChange,
   onConvert,
   onToggleUnderlay,
+  onSave,
+  onSaveAs,
+  onOpen,
   onClearLayout,
   onClearWalls,
   onClearAll,
@@ -48,11 +69,22 @@ export function TopBar({
     reader.readAsDataURL(file);
   }
 
+  const planLabel = activePlanName
+    ? `${activePlanName}${isDirty ? " *" : ""}`
+    : isDirty
+      ? "Unsaved plan *"
+      : null;
+
   return (
     <header className={styles.topbar}>
       <div className={styles.brand}>
         <span className={styles.brandName}>dimensional</span>
         <span className={styles.brandTag}>floor plan</span>
+        {planLabel && (
+          <span className={styles.planName} title={planLabel}>
+            {planLabel}
+          </span>
+        )}
       </div>
 
       <div className={styles.topbarActions}>
@@ -73,56 +105,101 @@ export function TopBar({
         >
           Upload plan
         </button>
-
-        <button
-          type="button"
-          className={`btn btn-ghost ${toolMode === "calibrate" ? "btn-active" : ""}`}
-          disabled={!hasImage}
-          onClick={() =>
-            onToolModeChange(toolMode === "calibrate" ? "select" : "calibrate")
-          }
-        >
-          Calibrate
+        <button type="button" className="btn btn-ghost" onClick={onDrawPlan}>
+          Draw plan
         </button>
 
-        <button
-          type="button"
-          className={`btn btn-ghost ${toolMode === "draw_wall" ? "btn-active" : ""}`}
-          disabled={!hasImage}
-          onClick={() =>
-            onToolModeChange(toolMode === "draw_wall" ? "select" : "draw_wall")
-          }
-        >
-          Draw wall
-        </button>
+        {hasPlan && (
+          <>
+            <div className={styles.divider} />
 
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={!hasImage || isConverting}
-          onClick={onConvert}
-        >
-          {isConverting ? "Converting…" : "Convert to drawing"}
-        </button>
+            <button
+              type="button"
+              className={`btn btn-ghost ${toolMode === "select" ? "btn-active" : ""}`}
+              onClick={() => onToolModeChange("select")}
+            >
+              Select
+            </button>
 
-        {hasImage && (
-          <button
-            type="button"
-            className={`btn btn-ghost ${imageUnderlayVisible ? "" : "btn-active"}`}
-            onClick={onToggleUnderlay}
-          >
-            {imageUnderlayVisible ? "Hide underlay" : "Show underlay"}
-          </button>
+            {DRAW_TOOLS.map(({ mode, label }) => (
+              <button
+                key={mode}
+                type="button"
+                className={`btn btn-ghost ${toolMode === mode ? "btn-active" : ""}`}
+                onClick={() => onToolModeChange(mode)}
+              >
+                {label}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              className={`btn btn-ghost ${toolMode === "calibrate" ? "btn-active" : ""}`}
+              onClick={() =>
+                onToolModeChange(
+                  toolMode === "calibrate" ? "select" : "calibrate",
+                )
+              }
+            >
+              Calibrate
+            </button>
+
+            {hasImage && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  disabled={isConverting}
+                  onClick={onConvert}
+                >
+                  {isConverting ? "Converting…" : "Convert to drawing"}
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-ghost ${imageUnderlayVisible ? "" : "btn-active"}`}
+                  onClick={onToggleUnderlay}
+                >
+                  {imageUnderlayVisible ? "Hide underlay" : "Show underlay"}
+                </button>
+              </>
+            )}
+          </>
         )}
 
         <span className={styles.scalePill}>
           {pixelsPerInch
             ? `Scale set · 1 in = ${pixelsPerInch.toFixed(1)} px`
-            : hasImage
+            : hasPlan
               ? "Scale not set"
               : "No plan loaded"}
           {hasWalls ? " · walls editable" : ""}
         </span>
+
+        <div className={styles.divider} />
+
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={onOpen}
+        >
+          Open
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          disabled={!hasPlan || !isDirty}
+          onClick={onSave}
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          disabled={!hasPlan}
+          onClick={onSaveAs}
+        >
+          Save as
+        </button>
 
         <div className={styles.divider} />
 
@@ -148,7 +225,7 @@ export function TopBar({
         <button
           type="button"
           className="btn btn-ghost"
-          disabled={!hasImage}
+          disabled={!hasPlan}
           onClick={onClearLayout}
         >
           Clear furniture
@@ -164,7 +241,7 @@ export function TopBar({
         <button
           type="button"
           className="btn btn-ghost btn-danger"
-          disabled={!hasImage}
+          disabled={!hasPlan}
           onClick={onClearAll}
         >
           Reset

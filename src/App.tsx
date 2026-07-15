@@ -1,23 +1,44 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { TopBar } from "./components/TopBar";
 import { CatalogRail } from "./components/CatalogRail";
 import { Inspector } from "./components/Inspector";
 import { EmptyState } from "./components/EmptyState";
 import { PlanCanvas } from "./components/PlanCanvas";
-import { DEFAULT_STATE, loadPlanState, savePlanState } from "./storage";
+import { PlanLibraryModal } from "./components/PlanLibraryModal";
+import {
+  clearLegacyPlanState,
+  DEFAULT_STATE,
+  createBlankPlanState,
+  deleteSavedPlan,
+  listSavedPlans,
+  loadSavedPlan,
+  loadSessionSnapshot,
+  planStatesEqual,
+  savePlanToLibrary,
+  saveSessionSnapshot,
+} from "./storage";
 import type {
   CalibrationDraft,
   CatalogPreset,
+  DrawElement,
   FurnitureItem,
   PlanState,
+  SessionSnapshot,
+  StorageError,
   ToolMode,
   UnitSystem,
-  WallDraft,
-  WallSegment,
 } from "./types";
+import { hasActivePlan } from "./types";
 import { displayValueToInches, unitLabel } from "./units";
 import { vectorizeFloorPlan } from "./vectorize";
+
+type LibraryModalMode = "open" | "save-as" | "unsaved" | null;
+
+type ConversionPreview = {
+  walls: { start: { x: number; y: number }; end: { x: number; y: number } }[];
+  warning?: string;
+};
 
 function createId(): string {
   return crypto.randomUUID();
@@ -28,47 +49,91 @@ function snapRotation(deg: number): number {
   return ((snapped % 360) + 360) % 360;
 }
 
-type ConversionPreview = {
-  walls: { start: { x: number; y: number }; end: { x: number; y: number } }[];
-  warning?: string;
-};
-
 export default function App() {
-  const [plan, setPlan] = useState<PlanState>(() => loadPlanState());
+  const [initial] = useState(() => loadSessionSnapshot());
+  const [plan, setPlan] = useState<PlanState>(initial.plan);
+  const [activePlanId, setActivePlanId] = useState<string | null>(
+    initial.activePlanId,
+  );
+  const [activePlanName, setActivePlanName] = useState<string | null>(
+    initial.activePlanName,
+  );
+  const [baselineState, setBaselineState] = useState<PlanState>(
+    initial.baselineState,
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(
+    null,
+  );
   const [toolMode, setToolMode] = useState<ToolMode>("select");
   const [calibration, setCalibration] = useState<CalibrationDraft>({
     start: null,
     end: null,
   });
-  const [wallDraft, setWallDraft] = useState<WallDraft>({
-    start: null,
-    end: null,
-  });
   const [pendingLinePx, setPendingLinePx] = useState<number | null>(null);
   const [calibInput, setCalibInput] = useState("");
-  const [imageSize, setImageSize] = useState<{
+  const [canvasSize, setCanvasSize] = useState<{
     width: number;
     height: number;
   } | null>(null);
+  const [savedPlans, setSavedPlans] = useState(() => listSavedPlans());
+  const [libraryModal, setLibraryModal] = useState<LibraryModalMode>(null);
+  const [pendingAction, setPendingAction] = useState<"open" | null>(null);
+  const [storageError, setStorageError] = useState<StorageError | null>(null);
   const [isConverting, setIsConverting] = useState(false);
   const [conversionPreview, setConversionPreview] =
     useState<ConversionPreview | null>(null);
+  const sessionHydrated = useRef(false);
+  const legacyMigrationSnapshot = useRef<SessionSnapshot | null>(
+    initial.needsLegacyMigration
+      ? {
+          plan: initial.plan,
+          activePlanId: initial.activePlanId,
+          activePlanName: initial.activePlanName,
+          baselineState: initial.baselineState,
+        }
+      : null,
+  );
+
+  const isDirty = !planStatesEqual(plan, baselineState);
+  const planActive = hasActivePlan(plan);
+  const canPlace = Boolean(planActive && plan.pixelsPerInch);
+  const wallCount = plan.elements.filter((el) => el.kind === "wall").length;
 
   useEffect(() => {
-    savePlanState(plan);
-  }, [plan]);
+    if (!sessionHydrated.current) {
+      sessionHydrated.current = true;
+      if (!legacyMigrationSnapshot.current) {
+        return;
+      }
+    }
+    const snapshot = {
+      plan,
+      activePlanId,
+      activePlanName,
+      baselineState,
+    };
+    const result = saveSessionSnapshot(snapshot);
+    if (!result.ok) {
+      setStorageError(result.error);
+      return;
+    }
+    if (legacyMigrationSnapshot.current) {
+      clearLegacyPlanState();
+      legacyMigrationSnapshot.current = null;
+    }
+  }, [plan, activePlanId, activePlanName, baselineState]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setToolMode("select");
         setCalibration({ start: null, end: null });
-        setWallDraft({ start: null, end: null });
         setPendingLinePx(null);
         setSelectedId(null);
-        setSelectedWallId(null);
+        setSelectedElementId(null);
+        setLibraryModal(null);
+        setPendingAction(null);
         setConversionPreview(null);
       }
       if (
@@ -76,64 +141,161 @@ export default function App() {
         !(e.target instanceof HTMLInputElement) &&
         !(e.target instanceof HTMLTextAreaElement)
       ) {
-        if (selectedWallId) {
-          setPlan((prev) => ({
-            ...prev,
-            walls: prev.walls.filter((w) => w.id !== selectedWallId),
-          }));
-          setSelectedWallId(null);
-        } else if (selectedId) {
+        if (selectedId) {
           setPlan((prev) => ({
             ...prev,
             items: prev.items.filter((i) => i.id !== selectedId),
           }));
           setSelectedId(null);
+        } else if (selectedElementId) {
+          setPlan((prev) => ({
+            ...prev,
+            elements: prev.elements.filter((el) => el.id !== selectedElementId),
+          }));
+          setSelectedElementId(null);
         }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, selectedWallId]);
+  }, [selectedId, selectedElementId]);
 
   const selectedItem = useMemo(
     () => plan.items.find((i) => i.id === selectedId) ?? null,
     [plan.items, selectedId],
   );
 
-  const selectedWall = useMemo(
-    () => plan.walls.find((w) => w.id === selectedWallId) ?? null,
-    [plan.walls, selectedWallId],
+  const selectedElement = useMemo(
+    () => plan.elements.find((el) => el.id === selectedElementId) ?? null,
+    [plan.elements, selectedElementId],
   );
+
+  const refreshSavedPlans = useCallback(() => {
+    setSavedPlans(listSavedPlans());
+  }, []);
+
+  const applyLoadedPlan = useCallback(
+    (state: PlanState, id: string | null, name: string | null) => {
+      setPlan(state);
+      setBaselineState(state);
+      setActivePlanId(id);
+      setActivePlanName(name);
+      setSelectedId(null);
+      setSelectedElementId(null);
+      setToolMode(state.pixelsPerInch ? "select" : "calibrate");
+      setCalibration({ start: null, end: null });
+      setPendingLinePx(null);
+      setCalibInput("");
+      setConversionPreview(null);
+    },
+    [],
+  );
+
+  const persistCurrentPlan = useCallback(
+    (id: string, name: string) => {
+      const result = savePlanToLibrary(id, name, plan);
+      if (!result.ok) {
+        setStorageError(result.error);
+        return false;
+      }
+      setActivePlanId(id);
+      setActivePlanName(result.value.name);
+      setBaselineState(plan);
+      refreshSavedPlans();
+      return true;
+    },
+    [plan, refreshSavedPlans],
+  );
+
+  const handleSave = useCallback(() => {
+    if (!hasActivePlan(plan)) return;
+    if (activePlanId && activePlanName) {
+      persistCurrentPlan(activePlanId, activePlanName);
+      return;
+    }
+    setLibraryModal("save-as");
+  }, [plan, activePlanId, activePlanName, persistCurrentPlan]);
+
+  const handleSaveAs = useCallback(() => {
+    if (!hasActivePlan(plan)) return;
+    setLibraryModal("save-as");
+  }, [plan]);
+
+  const openPlanById = useCallback(
+    (id: string) => {
+      const saved = loadSavedPlan(id);
+      if (!saved) {
+        setStorageError({
+          type: "unavailable",
+          message: "That saved plan could not be loaded.",
+        });
+        refreshSavedPlans();
+        return;
+      }
+      applyLoadedPlan(saved.state, saved.id, saved.name);
+      setLibraryModal(null);
+      setPendingAction(null);
+    },
+    [applyLoadedPlan, refreshSavedPlans],
+  );
+
+  const requestOpenLibrary = useCallback(() => {
+    refreshSavedPlans();
+    if (isDirty) {
+      setPendingAction("open");
+      setLibraryModal("unsaved");
+      return;
+    }
+    setLibraryModal("open");
+  }, [isDirty, refreshSavedPlans]);
 
   const updatePlan = useCallback((patch: Partial<PlanState>) => {
     setPlan((prev) => ({ ...prev, ...patch }));
   }, []);
 
-  const handleUpload = useCallback((dataUrl: string) => {
-    setPlan((prev) => ({
-      ...prev,
-      imageDataUrl: dataUrl,
-      pixelsPerInch: null,
-      items: [],
-      walls: [],
-      imageUnderlayVisible: true,
-      imageUnderlayOpacity: 1,
-    }));
+  const handleUpload = useCallback(
+    (dataUrl: string) => {
+      const next = {
+        ...DEFAULT_STATE,
+        imageDataUrl: dataUrl,
+        unitSystem: plan.unitSystem,
+        imageUnderlayVisible: true,
+        imageUnderlayOpacity: 1,
+      };
+      setPlan(next);
+      setBaselineState(next);
+      setActivePlanId(null);
+      setActivePlanName(null);
+      setSelectedId(null);
+      setSelectedElementId(null);
+      setToolMode("calibrate");
+      setCalibration({ start: null, end: null });
+      setPendingLinePx(null);
+      setConversionPreview(null);
+    },
+    [plan.unitSystem],
+  );
+
+  const handleDrawPlan = useCallback(() => {
+    const next = createBlankPlanState(plan.unitSystem);
+    setPlan(next);
+    setBaselineState(next);
+    setActivePlanId(null);
+    setActivePlanName(null);
     setSelectedId(null);
-    setSelectedWallId(null);
-    setToolMode("calibrate");
+    setSelectedElementId(null);
+    setToolMode("draw-wall");
     setCalibration({ start: null, end: null });
-    setWallDraft({ start: null, end: null });
     setPendingLinePx(null);
     setConversionPreview(null);
-  }, []);
+  }, [plan.unitSystem]);
 
   const handlePlace = useCallback(
     (preset: CatalogPreset) => {
-      if (!plan.imageDataUrl || !plan.pixelsPerInch) return;
+      if (!hasActivePlan(plan) || !plan.pixelsPerInch) return;
 
-      const cx = imageSize ? imageSize.width / 2 : 400;
-      const cy = imageSize ? imageSize.height / 2 : 300;
+      const cx = canvasSize ? canvasSize.width / 2 : 400;
+      const cy = canvasSize ? canvasSize.height / 2 : 300;
       const offset = plan.items.length * 16;
 
       const item: FurnitureItem = {
@@ -148,15 +310,10 @@ export default function App() {
       };
       setPlan((prev) => ({ ...prev, items: [...prev.items, item] }));
       setSelectedId(item.id);
-      setSelectedWallId(null);
+      setSelectedElementId(null);
       setToolMode("select");
     },
-    [
-      plan.imageDataUrl,
-      plan.pixelsPerInch,
-      plan.items.length,
-      imageSize,
-    ],
+    [plan, canvasSize],
   );
 
   const handleItemChange = useCallback(
@@ -171,18 +328,6 @@ export default function App() {
     [],
   );
 
-  const handleWallChange = useCallback(
-    (id: string, patch: Partial<WallSegment>) => {
-      setPlan((prev) => ({
-        ...prev,
-        walls: prev.walls.map((wall) =>
-          wall.id === id ? { ...wall, ...patch } : wall,
-        ),
-      }));
-    },
-    [],
-  );
-
   const handleDelete = useCallback((id: string) => {
     setPlan((prev) => ({
       ...prev,
@@ -191,12 +336,12 @@ export default function App() {
     setSelectedId((cur) => (cur === id ? null : cur));
   }, []);
 
-  const handleDeleteWall = useCallback((id: string) => {
+  const handleDeleteElement = useCallback((id: string) => {
     setPlan((prev) => ({
       ...prev,
-      walls: prev.walls.filter((w) => w.id !== id),
+      elements: prev.elements.filter((el) => el.id !== id),
     }));
-    setSelectedWallId((cur) => (cur === id ? null : cur));
+    setSelectedElementId((cur) => (cur === id ? null : cur));
   }, []);
 
   const handleRotate = useCallback((id: string, delta: number) => {
@@ -209,6 +354,22 @@ export default function App() {
       ),
     }));
   }, []);
+
+  const handleElementAdd = useCallback((element: DrawElement) => {
+    setPlan((prev) => ({ ...prev, elements: [...prev.elements, element] }));
+  }, []);
+
+  const handleElementChange = useCallback(
+    (id: string, patch: Partial<DrawElement>) => {
+      setPlan((prev) => ({
+        ...prev,
+        elements: prev.elements.map((el) =>
+          el.id === id ? { ...el, ...patch } : el,
+        ),
+      }));
+    },
+    [],
+  );
 
   const handleCalibrationComplete = useCallback((lineLengthPx: number) => {
     if (lineLengthPx < 4) return;
@@ -234,25 +395,6 @@ export default function App() {
     setCalibration({ start: null, end: null });
   }, []);
 
-  const handleWallComplete = useCallback(
-    (start: { x: number; y: number }, end: { x: number; y: number }) => {
-      if (Math.hypot(end.x - start.x, end.y - start.y) < 4) {
-        setWallDraft({ start: null, end: null });
-        return;
-      }
-      const wall: WallSegment = {
-        id: createId(),
-        start,
-        end,
-      };
-      setPlan((prev) => ({ ...prev, walls: [...prev.walls, wall] }));
-      setSelectedWallId(wall.id);
-      setSelectedId(null);
-      setWallDraft({ start: null, end: null });
-    },
-    [],
-  );
-
   const runConversion = useCallback(async () => {
     if (!plan.imageDataUrl || isConverting) return;
     setIsConverting(true);
@@ -276,19 +418,25 @@ export default function App() {
 
   const acceptConversion = useCallback(() => {
     if (!conversionPreview) return;
-    const newWalls: WallSegment[] = conversionPreview.walls.map((w) => ({
+    const newWalls: DrawElement[] = conversionPreview.walls.map((w) => ({
       id: createId(),
-      start: w.start,
-      end: w.end,
+      kind: "wall" as const,
+      x1: w.start.x,
+      y1: w.start.y,
+      x2: w.end.x,
+      y2: w.end.y,
     }));
     setPlan((prev) => ({
       ...prev,
-      walls: newWalls,
+      elements: [
+        ...prev.elements.filter((el) => el.kind !== "wall"),
+        ...newWalls,
+      ],
       imageUnderlayVisible: true,
       imageUnderlayOpacity: 0.35,
     }));
     setConversionPreview(null);
-    setSelectedWallId(null);
+    setSelectedElementId(null);
     setSelectedId(null);
   }, [conversionPreview]);
 
@@ -296,52 +444,91 @@ export default function App() {
     setConversionPreview(null);
   }, []);
 
-  const canPlace = Boolean(plan.imageDataUrl && plan.pixelsPerInch);
+  const handleDeleteSavedPlan = useCallback(
+    (id: string) => {
+      const meta = savedPlans.find((p) => p.id === id);
+      if (!meta) return;
+      if (!window.confirm(`Delete saved plan "${meta.name}"?`)) return;
+      const result = deleteSavedPlan(id);
+      if (!result.ok) {
+        setStorageError(result.error);
+        return;
+      }
+      if (activePlanId === id) {
+        setActivePlanId(null);
+        setActivePlanName(null);
+      }
+      refreshSavedPlans();
+    },
+    [savedPlans, activePlanId, refreshSavedPlans],
+  );
 
   return (
     <div className="app">
+      {storageError && (
+        <div className="storage-error" role="alert">
+          <span>{storageError.message}</span>
+          <button
+            type="button"
+            className="storage-error-dismiss"
+            aria-label="Dismiss error"
+            onClick={() => setStorageError(null)}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       <TopBar
         unitSystem={plan.unitSystem}
         toolMode={toolMode}
+        hasPlan={planActive}
         hasImage={Boolean(plan.imageDataUrl)}
         pixelsPerInch={plan.pixelsPerInch}
-        hasWalls={plan.walls.length > 0}
+        hasWalls={wallCount > 0}
         imageUnderlayVisible={plan.imageUnderlayVisible}
         isConverting={isConverting}
+        activePlanName={activePlanName}
+        isDirty={isDirty}
         onUnitSystemChange={(unitSystem: UnitSystem) => updatePlan({ unitSystem })}
         onUpload={handleUpload}
+        onDrawPlan={handleDrawPlan}
         onToolModeChange={(mode) => {
           setToolMode(mode);
           if (mode === "calibrate") {
             setCalibration({ start: null, end: null });
             setPendingLinePx(null);
-            setWallDraft({ start: null, end: null });
-          }
-          if (mode === "draw_wall") {
-            setWallDraft({ start: null, end: null });
-            setCalibration({ start: null, end: null });
-            setPendingLinePx(null);
           }
         }}
-        onConvert={runConversion}
+        onConvert={() => {
+          void runConversion();
+        }}
         onToggleUnderlay={() =>
           updatePlan({ imageUnderlayVisible: !plan.imageUnderlayVisible })
         }
+        onSave={handleSave}
+        onSaveAs={handleSaveAs}
+        onOpen={requestOpenLibrary}
         onClearLayout={() => {
           updatePlan({ items: [] });
           setSelectedId(null);
         }}
         onClearWalls={() => {
-          updatePlan({ walls: [] });
-          setSelectedWallId(null);
+          updatePlan({
+            elements: plan.elements.filter((el) => el.kind !== "wall"),
+          });
+          setSelectedElementId(null);
         }}
         onClearAll={() => {
-          setPlan({ ...DEFAULT_STATE, unitSystem: plan.unitSystem });
+          const next = { ...DEFAULT_STATE, unitSystem: plan.unitSystem };
+          setPlan(next);
+          setBaselineState(next);
+          setActivePlanId(null);
+          setActivePlanName(null);
           setSelectedId(null);
-          setSelectedWallId(null);
+          setSelectedElementId(null);
           setToolMode("select");
           setCalibration({ start: null, end: null });
-          setWallDraft({ start: null, end: null });
           setPendingLinePx(null);
           setConversionPreview(null);
         }}
@@ -355,42 +542,44 @@ export default function App() {
         />
 
         <div className="canvas-area">
-          {!plan.imageDataUrl ? (
-            <EmptyState onUpload={handleUpload} />
+          {!planActive ? (
+            <EmptyState onUpload={handleUpload} onDrawPlan={handleDrawPlan} />
           ) : (
             <>
               <PlanCanvas
                 imageDataUrl={plan.imageDataUrl}
+                canvasWidth={plan.canvasWidth}
+                canvasHeight={plan.canvasHeight}
                 pixelsPerInch={plan.pixelsPerInch}
                 items={plan.items}
-                walls={plan.walls}
+                elements={plan.elements}
                 selectedId={selectedId}
-                selectedWallId={selectedWallId}
+                selectedElementId={selectedElementId}
                 toolMode={toolMode}
                 unitSystem={plan.unitSystem}
                 calibration={calibration}
-                wallDraft={wallDraft}
                 imageUnderlayVisible={plan.imageUnderlayVisible}
                 imageUnderlayOpacity={plan.imageUnderlayOpacity}
                 conversionPreview={conversionPreview?.walls}
                 onSelect={setSelectedId}
-                onSelectWall={setSelectedWallId}
+                onElementSelect={setSelectedElementId}
                 onItemChange={handleItemChange}
-                onWallChange={handleWallChange}
+                onElementChange={handleElementChange}
+                onElementAdd={handleElementAdd}
                 onCalibrationChange={setCalibration}
                 onCalibrationComplete={handleCalibrationComplete}
-                onWallDraftChange={setWallDraft}
-                onWallComplete={handleWallComplete}
-                onImageSize={setImageSize}
+                onCanvasSize={setCanvasSize}
               />
               {toolMode === "calibrate" && pendingLinePx == null && (
                 <div className="overlay-hint">
                   Click two points on a wall or dimension line with a known length
                 </div>
               )}
-              {toolMode === "draw_wall" && (
+              {toolMode.startsWith("draw-") && (
                 <div className="overlay-hint">
-                  Click two points to draw a wall segment · Delete to remove selection
+                  {toolMode === "draw-wall" || toolMode === "draw-line"
+                    ? "Click two points to draw · Esc to cancel"
+                    : "Click and drag to draw · Esc to cancel"}
                 </div>
               )}
               {plan.pixelsPerInch && toolMode === "select" && (
@@ -404,13 +593,13 @@ export default function App() {
 
         <Inspector
           item={selectedItem}
-          wall={selectedWall}
+          element={selectedElement}
           pixelsPerInch={plan.pixelsPerInch}
           unitSystem={plan.unitSystem}
           onChange={handleItemChange}
           onDelete={handleDelete}
           onRotate={handleRotate}
-          onDeleteWall={handleDeleteWall}
+          onDeleteElement={handleDeleteElement}
         />
       </div>
 
@@ -476,10 +665,10 @@ export default function App() {
             {conversionPreview.warning && (
               <p className="modal-warning">{conversionPreview.warning}</p>
             )}
-            {plan.walls.length > 0 && conversionPreview.walls.length > 0 && (
+            {wallCount > 0 && conversionPreview.walls.length > 0 && (
               <p className="modal-warning">
-                Accepting will replace your existing {plan.walls.length} wall
-                segment{plan.walls.length === 1 ? "" : "s"}. Furniture and the
+                Accepting will replace your existing {wallCount} wall segment
+                {wallCount === 1 ? "" : "s"}. Other drawings, furniture, and the
                 uploaded image are kept.
               </p>
             )}
@@ -512,6 +701,52 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {libraryModal && (
+        <PlanLibraryModal
+          mode={libraryModal}
+          plans={savedPlans}
+          initialName={activePlanName ?? ""}
+          currentPlanName={activePlanName}
+          onOpen={openPlanById}
+          onSaveAs={(name) => {
+            const id = createId();
+            if (persistCurrentPlan(id, name)) {
+              setLibraryModal(null);
+              if (pendingAction === "open") {
+                setPendingAction(null);
+                setLibraryModal("open");
+              }
+            }
+          }}
+          onSaveAndContinue={() => {
+            if (activePlanId && activePlanName) {
+              if (!persistCurrentPlan(activePlanId, activePlanName)) return;
+            } else {
+              setLibraryModal("save-as");
+              return;
+            }
+            setLibraryModal(null);
+            if (pendingAction === "open") {
+              setPendingAction(null);
+              setLibraryModal("open");
+            }
+          }}
+          onDiscard={() => {
+            setPlan(baselineState);
+            setLibraryModal(null);
+            if (pendingAction === "open") {
+              setPendingAction(null);
+              setLibraryModal("open");
+            }
+          }}
+          onDelete={libraryModal === "open" ? handleDeleteSavedPlan : undefined}
+          onClose={() => {
+            setLibraryModal(null);
+            setPendingAction(null);
+          }}
+        />
       )}
     </div>
   );

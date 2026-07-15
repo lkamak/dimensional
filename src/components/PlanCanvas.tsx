@@ -12,37 +12,38 @@ import {
 import type Konva from "konva";
 import type {
   CalibrationDraft,
+  DrawElement,
+  DrawElementKind,
   FurnitureItem,
   ToolMode,
   UnitSystem,
-  WallDraft,
-  WallSegment,
 } from "../types";
+import { isDrawTool } from "../types";
 import { formatDimensions } from "../units";
 
 type PlanCanvasProps = {
   imageDataUrl: string | null;
+  canvasWidth: number | null;
+  canvasHeight: number | null;
   pixelsPerInch: number | null;
   items: FurnitureItem[];
-  walls: WallSegment[];
+  elements: DrawElement[];
   selectedId: string | null;
-  selectedWallId: string | null;
+  selectedElementId: string | null;
   toolMode: ToolMode;
   unitSystem: UnitSystem;
   calibration: CalibrationDraft;
-  wallDraft: WallDraft;
-  imageUnderlayVisible: boolean;
-  imageUnderlayOpacity: number;
+  imageUnderlayVisible?: boolean;
+  imageUnderlayOpacity?: number;
   conversionPreview?: { start: { x: number; y: number }; end: { x: number; y: number } }[];
   onSelect: (id: string | null) => void;
-  onSelectWall: (id: string | null) => void;
+  onElementSelect: (id: string | null) => void;
   onItemChange: (id: string, patch: Partial<FurnitureItem>) => void;
-  onWallChange: (id: string, patch: Partial<WallSegment>) => void;
+  onElementChange: (id: string, patch: Partial<DrawElement>) => void;
+  onElementAdd: (element: DrawElement) => void;
   onCalibrationChange: (draft: CalibrationDraft) => void;
   onCalibrationComplete: (lineLengthPx: number) => void;
-  onWallDraftChange: (draft: WallDraft) => void;
-  onWallComplete: (start: { x: number; y: number }, end: { x: number; y: number }) => void;
-  onImageSize?: (size: { width: number; height: number }) => void;
+  onCanvasSize?: (size: { width: number; height: number }) => void;
 };
 
 function useHtmlImage(src: string | null): HTMLImageElement | null {
@@ -96,59 +97,198 @@ function dist(
   return Math.hypot(b.x - a.x, b.y - a.y);
 }
 
-function pointToSegmentDistance(
-  p: { x: number; y: number },
-  a: { x: number; y: number },
-  b: { x: number; y: number },
-): number {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const lenSq = dx * dx + dy * dy;
-  if (lenSq < 1e-6) return dist(p, a);
-  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq));
-  return dist(p, { x: a.x + t * dx, y: a.y + t * dy });
+function normalizeRect(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): { x1: number; y1: number; x2: number; y2: number } {
+  return {
+    x1: Math.min(x1, x2),
+    y1: Math.min(y1, y2),
+    x2: Math.max(x1, x2),
+    y2: Math.max(y1, y2),
+  };
 }
 
-function findWallAt(
-  walls: WallSegment[],
-  point: { x: number; y: number },
-  threshold: number,
-): WallSegment | null {
-  let best: WallSegment | null = null;
-  let bestDist = threshold;
-  for (const wall of walls) {
-    const d = pointToSegmentDistance(point, wall.start, wall.end);
-    if (d < bestDist) {
-      bestDist = d;
-      best = wall;
-    }
+function drawKindFromTool(toolMode: ToolMode): DrawElementKind | null {
+  if (toolMode === "draw-wall") return "wall";
+  if (toolMode === "draw-room") return "room";
+  if (toolMode === "draw-line") return "line";
+  if (toolMode === "draw-rect") return "rect";
+  return null;
+}
+
+function renderElementShape(
+  el: DrawElement,
+  selected: boolean,
+  scale: number,
+  draggable: boolean,
+  listening: boolean,
+  onSelect: () => void,
+  onDragEnd: (dx: number, dy: number) => void,
+) {
+  const stroke = selected ? "#3d5a5b" : "rgba(42, 41, 36, 0.75)";
+  const strokeWidth = (selected ? 2 : 1) / scale;
+
+  if (el.kind === "wall") {
+    return (
+      <Line
+        key={el.id}
+        points={[el.x1, el.y1, el.x2, el.y2]}
+        stroke={stroke}
+        strokeWidth={8 / scale}
+        lineCap="square"
+        hitStrokeWidth={16 / scale}
+        draggable={draggable}
+        listening={listening}
+        onClick={(e) => {
+          e.cancelBubble = true;
+          onSelect();
+        }}
+        onTap={(e) => {
+          e.cancelBubble = true;
+          onSelect();
+        }}
+        onDragEnd={(e) => {
+          const node = e.target;
+          onDragEnd(node.x(), node.y());
+          node.position({ x: 0, y: 0 });
+        }}
+      />
+    );
   }
-  return best;
+
+  if (el.kind === "line") {
+    return (
+      <Line
+        key={el.id}
+        points={[el.x1, el.y1, el.x2, el.y2]}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        dash={[6 / scale, 4 / scale]}
+        hitStrokeWidth={12 / scale}
+        draggable={draggable}
+        listening={listening}
+        onClick={(e) => {
+          e.cancelBubble = true;
+          onSelect();
+        }}
+        onTap={(e) => {
+          e.cancelBubble = true;
+          onSelect();
+        }}
+        onDragEnd={(e) => {
+          const node = e.target;
+          onDragEnd(node.x(), node.y());
+          node.position({ x: 0, y: 0 });
+        }}
+      />
+    );
+  }
+
+  const rect = normalizeRect(el.x1, el.y1, el.x2, el.y2);
+  const width = rect.x2 - rect.x1;
+  const height = rect.y2 - rect.y1;
+
+  return (
+    <Rect
+      key={el.id}
+      x={rect.x1}
+      y={rect.y1}
+      width={width}
+      height={height}
+      fill={el.kind === "room" ? "rgba(61, 90, 91, 0.08)" : "transparent"}
+      stroke={stroke}
+      strokeWidth={strokeWidth}
+      draggable={draggable}
+      listening={listening}
+      onClick={(e) => {
+        e.cancelBubble = true;
+        onSelect();
+      }}
+      onTap={(e) => {
+        e.cancelBubble = true;
+        onSelect();
+      }}
+      onDragEnd={(e) => {
+        const node = e.target;
+        onDragEnd(node.x() - rect.x1, node.y() - rect.y1);
+      }}
+    />
+  );
+}
+
+function renderDraftPreview(
+  kind: DrawElementKind,
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  scale: number,
+) {
+  if (kind === "wall") {
+    return (
+      <Line
+        points={[start.x, start.y, end.x, end.y]}
+        stroke="#3d5a5b"
+        strokeWidth={8 / scale}
+        lineCap="square"
+        opacity={0.65}
+        listening={false}
+      />
+    );
+  }
+  if (kind === "line") {
+    return (
+      <Line
+        points={[start.x, start.y, end.x, end.y]}
+        stroke="#3d5a5b"
+        strokeWidth={2 / scale}
+        dash={[6 / scale, 4 / scale]}
+        opacity={0.65}
+        listening={false}
+      />
+    );
+  }
+  const rect = normalizeRect(start.x, start.y, end.x, end.y);
+  return (
+    <Rect
+      x={rect.x1}
+      y={rect.y1}
+      width={rect.x2 - rect.x1}
+      height={rect.y2 - rect.y1}
+      fill={kind === "room" ? "rgba(61, 90, 91, 0.08)" : "transparent"}
+      stroke="#3d5a5b"
+      strokeWidth={2 / scale}
+      dash={[6 / scale, 4 / scale]}
+      opacity={0.65}
+      listening={false}
+    />
+  );
 }
 
 export function PlanCanvas({
   imageDataUrl,
+  canvasWidth,
+  canvasHeight,
   pixelsPerInch,
   items,
-  walls,
+  elements,
   selectedId,
-  selectedWallId,
+  selectedElementId,
   toolMode,
   unitSystem,
   calibration,
-  wallDraft,
-  imageUnderlayVisible,
-  imageUnderlayOpacity,
+  imageUnderlayVisible = true,
+  imageUnderlayOpacity = 1,
   conversionPreview,
   onSelect,
-  onSelectWall,
+  onElementSelect,
   onItemChange,
-  onWallChange,
+  onElementChange,
+  onElementAdd,
   onCalibrationChange,
   onCalibrationComplete,
-  onWallDraftChange,
-  onWallComplete,
-  onImageSize,
+  onCanvasSize,
 }: PlanCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -156,8 +296,17 @@ export function PlanCanvas({
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [spaceDown, setSpaceDown] = useState(false);
+  const [drawDraft, setDrawDraft] = useState<{
+    kind: DrawElementKind;
+    start: { x: number; y: number };
+    end: { x: number; y: number } | null;
+  } | null>(null);
   const image = useHtmlImage(imageDataUrl);
   const fittedRef = useRef<string | null>(null);
+
+  const contentWidth = image?.width ?? canvasWidth ?? 800;
+  const contentHeight = image?.height ?? canvasHeight ?? 600;
+  const fitKey = imageDataUrl ?? `blank:${canvasWidth}x${canvasHeight}`;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -192,25 +341,33 @@ export function PlanCanvas({
   }, []);
 
   useEffect(() => {
-    if (!image || !imageDataUrl) return;
-    onImageSize?.({ width: image.width, height: image.height });
-    if (fittedRef.current === imageDataUrl) return;
-    fittedRef.current = imageDataUrl;
+    onCanvasSize?.({ width: contentWidth, height: contentHeight });
+  }, [contentWidth, contentHeight, onCanvasSize]);
+
+  useEffect(() => {
+    if (!contentWidth || !contentHeight) return;
+    if (fittedRef.current === fitKey) return;
+    fittedRef.current = fitKey;
 
     const pad = 48;
-    const sx = (size.width - pad * 2) / image.width;
-    const sy = (size.height - pad * 2) / image.height;
+    const sx = (size.width - pad * 2) / contentWidth;
+    const sy = (size.height - pad * 2) / contentHeight;
     const next = Math.min(sx, sy, 1.5);
     setScale(next);
     setPosition({
-      x: (size.width - image.width * next) / 2,
-      y: (size.height - image.height * next) / 2,
+      x: (size.width - contentWidth * next) / 2,
+      y: (size.height - contentHeight * next) / 2,
     });
-  }, [image, imageDataUrl, size.width, size.height, onImageSize]);
+  }, [image, fitKey, contentWidth, contentHeight, size.width, size.height]);
+
+  useEffect(() => {
+    setDrawDraft(null);
+  }, [toolMode]);
 
   const isPanning = toolMode === "pan" || spaceDown;
   const isCalibrating = toolMode === "calibrate";
-  const isDrawingWall = toolMode === "draw_wall";
+  const drawKind = drawKindFromTool(toolMode);
+  const isTwoClickDraw = drawKind === "wall" || drawKind === "line";
 
   const pointerWorld = (stage: Konva.Stage) => {
     const pointer = stage.getPointerPosition();
@@ -219,6 +376,24 @@ export function PlanCanvas({
       x: (pointer.x - position.x) / scale,
       y: (pointer.y - position.y) / scale,
     };
+  };
+
+  const commitDrawElement = (
+    kind: DrawElementKind,
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+  ) => {
+    if (dist(start, end) < 4) return;
+    const rect = normalizeRect(start.x, start.y, end.x, end.y);
+    onElementAdd({
+      id: crypto.randomUUID(),
+      kind,
+      x1: rect.x1,
+      y1: rect.y1,
+      x2: rect.x2,
+      y2: rect.y2,
+    });
+    setDrawDraft(null);
   };
 
   const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -267,28 +442,27 @@ export function PlanCanvas({
       return;
     }
 
-    if (isDrawingWall) {
-      if (!wallDraft.start) {
-        onWallDraftChange({ start: world, end: null });
-      } else {
-        onWallDraftChange({ start: wallDraft.start, end: world });
-        onWallComplete(wallDraft.start, world);
+    if (drawKind) {
+      if (isTwoClickDraw) {
+        if (!drawDraft) {
+          setDrawDraft({ kind: drawKind, start: world, end: null });
+        } else {
+          commitDrawElement(drawKind, drawDraft.start, world);
+        }
+        return;
       }
+
+      setDrawDraft({ kind: drawKind, start: world, end: world });
       return;
     }
 
-    if (toolMode === "select") {
-      const hitWall = findWallAt(walls, world, 8 / scale);
-      if (hitWall) {
-        onSelectWall(hitWall.id);
-        onSelect(null);
-        return;
-      }
-    }
-
-    if (e.target === stage || e.target.getClassName() === "Image") {
+    if (
+      e.target === stage ||
+      e.target.getClassName() === "Image" ||
+      e.target.name() === "canvas-background"
+    ) {
       onSelect(null);
-      onSelectWall(null);
+      onElementSelect(null);
     }
   };
 
@@ -303,92 +477,16 @@ export function PlanCanvas({
       return;
     }
 
-    if (isDrawingWall && wallDraft.start && !wallDraft.end) {
-      onWallDraftChange({ start: wallDraft.start, end: world });
+    if (drawDraft && (!isTwoClickDraw || drawDraft.end == null)) {
+      setDrawDraft({ ...drawDraft, end: world });
     }
   };
 
-  const wallNodes = useMemo(() => {
-    const strokeW = 3 / scale;
-    const previewStroke = 2 / scale;
-
-    const previewNodes =
-      conversionPreview?.map((seg, i) => (
-        <Line
-          key={`preview-${i}`}
-          points={[seg.start.x, seg.start.y, seg.end.x, seg.end.y]}
-          stroke="rgba(245, 78, 0, 0.75)"
-          strokeWidth={previewStroke}
-          dash={[8 / scale, 4 / scale]}
-          listening={false}
-        />
-      )) ?? [];
-
-    const wallLines = walls.map((wall) => {
-      const selected = wall.id === selectedWallId;
-      return (
-        <Group key={wall.id}>
-          <Line
-            points={[wall.start.x, wall.start.y, wall.end.x, wall.end.y]}
-            stroke={selected ? "#3d5a5b" : "rgba(42, 41, 36, 0.85)"}
-            strokeWidth={selected ? strokeW + 1 / scale : strokeW}
-            hitStrokeWidth={Math.max(12 / scale, 8)}
-            onClick={(ev) => {
-              ev.cancelBubble = true;
-              onSelectWall(wall.id);
-              onSelect(null);
-            }}
-            onTap={(ev) => {
-              ev.cancelBubble = true;
-              onSelectWall(wall.id);
-              onSelect(null);
-            }}
-          />
-          {selected && (
-            <>
-              <Circle
-                x={wall.start.x}
-                y={wall.start.y}
-                radius={5 / scale}
-                fill="#3d5a5b"
-                draggable={!isPanning && !isCalibrating && !isDrawingWall}
-                onDragEnd={(ev) => {
-                  onWallChange(wall.id, {
-                    start: { x: ev.target.x(), y: ev.target.y() },
-                  });
-                }}
-              />
-              <Circle
-                x={wall.end.x}
-                y={wall.end.y}
-                radius={5 / scale}
-                fill="#3d5a5b"
-                draggable={!isPanning && !isCalibrating && !isDrawingWall}
-                onDragEnd={(ev) => {
-                  onWallChange(wall.id, {
-                    end: { x: ev.target.x(), y: ev.target.y() },
-                  });
-                }}
-              />
-            </>
-          )}
-        </Group>
-      );
-    });
-
-    return [...previewNodes, ...wallLines];
-  }, [
-    walls,
-    selectedWallId,
-    scale,
-    conversionPreview,
-    isPanning,
-    isCalibrating,
-    isDrawingWall,
-    onSelectWall,
-    onSelect,
-    onWallChange,
-  ]);
+  const handleStageMouseUp = () => {
+    if (!drawDraft || isTwoClickDraw || isPanning) return;
+    if (!drawDraft.end) return;
+    commitDrawElement(drawDraft.kind, drawDraft.start, drawDraft.end);
+  };
 
   const furnitureNodes = useMemo(() => {
     if (!pixelsPerInch) return null;
@@ -439,21 +537,21 @@ export function PlanCanvas({
           rotation={item.rotation}
           offsetX={w / 2}
           offsetY={h / 2}
-          draggable={!isCalibrating && !isPanning && !isDrawingWall}
-          onClick={(ev) => {
-            ev.cancelBubble = true;
+          draggable={!isCalibrating && !isPanning && !isDrawTool(toolMode)}
+          onClick={(e) => {
+            e.cancelBubble = true;
             onSelect(item.id);
-            onSelectWall(null);
+            onElementSelect(null);
           }}
-          onTap={(ev) => {
-            ev.cancelBubble = true;
+          onTap={(e) => {
+            e.cancelBubble = true;
             onSelect(item.id);
-            onSelectWall(null);
+            onElementSelect(null);
           }}
-          onDragEnd={(ev) => {
+          onDragEnd={(e) => {
             onItemChange(item.id, {
-              x: ev.target.x(),
-              y: ev.target.y(),
+              x: e.target.x(),
+              y: e.target.y(),
             });
           }}
         >
@@ -509,16 +607,58 @@ export function PlanCanvas({
     selectedId,
     isCalibrating,
     isPanning,
-    isDrawingWall,
+    toolMode,
     onSelect,
-    onSelectWall,
+    onElementSelect,
     onItemChange,
     scale,
     unitSystem,
   ]);
 
-  const cursor =
-    isPanning ? "grab" : isCalibrating || isDrawingWall ? "crosshair" : "default";
+  const elementNodes = useMemo(
+    () =>
+      elements.map((el) => {
+        const selected = el.id === selectedElementId;
+        const draggable = toolMode === "select" && !isPanning;
+        return renderElementShape(
+          el,
+          selected,
+          scale,
+          draggable,
+          !isCalibrating && !drawKind,
+          () => {
+            onElementSelect(el.id);
+            onSelect(null);
+          },
+          (dx, dy) => {
+            onElementChange(el.id, {
+              x1: el.x1 + dx,
+              y1: el.y1 + dy,
+              x2: el.x2 + dx,
+              y2: el.y2 + dy,
+            });
+          },
+        );
+      }),
+    [
+      elements,
+      selectedElementId,
+      toolMode,
+      isPanning,
+      isCalibrating,
+      drawKind,
+      scale,
+      onElementSelect,
+      onSelect,
+      onElementChange,
+    ],
+  );
+
+  const cursor = isPanning
+    ? "grab"
+    : isCalibrating || drawKind
+      ? "crosshair"
+      : "default";
 
   return (
     <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
@@ -539,20 +679,51 @@ export function PlanCanvas({
         onWheel={handleWheel}
         onMouseDown={handleStageMouseDown}
         onMouseMove={handleStageMouseMove}
+        onMouseUp={handleStageMouseUp}
         style={{ cursor }}
       >
         <Layer>
+          {!image && canvasWidth != null && canvasHeight != null && (
+            <Rect
+              name="canvas-background"
+              x={0}
+              y={0}
+              width={canvasWidth}
+              height={canvasHeight}
+              fill="#fafaf7"
+              stroke="rgba(42, 41, 36, 0.2)"
+              strokeWidth={1 / scale}
+              listening={!isCalibrating && !drawKind}
+            />
+          )}
           {image && imageUnderlayVisible && (
             <KonvaImage
               image={image}
               width={image.width}
               height={image.height}
               opacity={imageUnderlayOpacity}
-              listening={!isCalibrating && !isDrawingWall}
+              listening={!isCalibrating && !drawKind}
             />
           )}
-          {wallNodes}
+          {elementNodes}
+          {conversionPreview?.map((seg, i) => (
+            <Line
+              key={`preview-${i}`}
+              points={[seg.start.x, seg.start.y, seg.end.x, seg.end.y]}
+              stroke="rgba(245, 78, 0, 0.75)"
+              strokeWidth={2 / scale}
+              dash={[8 / scale, 4 / scale]}
+              listening={false}
+            />
+          ))}
           {furnitureNodes}
+          {drawDraft?.end &&
+            renderDraftPreview(
+              drawDraft.kind,
+              drawDraft.start,
+              drawDraft.end,
+              scale,
+            )}
           {isCalibrating && calibration.start && (
             <>
               <Circle
@@ -579,37 +750,6 @@ export function PlanCanvas({
                     y={calibration.end.y}
                     radius={4 / scale}
                     fill="#3d5a5b"
-                  />
-                </>
-              )}
-            </>
-          )}
-          {isDrawingWall && wallDraft.start && (
-            <>
-              <Circle
-                x={wallDraft.start.x}
-                y={wallDraft.start.y}
-                radius={4 / scale}
-                fill="#f54e00"
-              />
-              {wallDraft.end && (
-                <>
-                  <Line
-                    points={[
-                      wallDraft.start.x,
-                      wallDraft.start.y,
-                      wallDraft.end.x,
-                      wallDraft.end.y,
-                    ]}
-                    stroke="#f54e00"
-                    strokeWidth={2 / scale}
-                    dash={[6 / scale, 4 / scale]}
-                  />
-                  <Circle
-                    x={wallDraft.end.x}
-                    y={wallDraft.end.y}
-                    radius={4 / scale}
-                    fill="#f54e00"
                   />
                 </>
               )}
