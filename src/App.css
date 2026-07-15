@@ -1,6 +1,6 @@
 .app {
   display: grid;
-  grid-template-rows: var(--topbar-h) 1fr;
+  grid-template-rows: auto 1fr;
   height: 100%;
   overflow: hidden;
   background: var(--bg);

@@ -2,9 +2,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  height: var(--topbar-h);
-  padding: 0 16px;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  min-height: var(--topbar-h);
+  padding: 8px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elevated);
 }
@@ -34,6 +35,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
