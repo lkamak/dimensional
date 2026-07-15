@@ -43,18 +43,6 @@ function snapRotation(deg: number): number {
   return ((snapped % 360) + 360) % 360;
 }
 
-function sessionSnapshotsEqual(
-  a: SessionSnapshot,
-  b: SessionSnapshot,
-): boolean {
-  return (
-    a.activePlanId === b.activePlanId &&
-    a.activePlanName === b.activePlanName &&
-    planStatesEqual(a.plan, b.plan) &&
-    planStatesEqual(a.baselineState, b.baselineState)
-  );
-}
-
 export default function App() {
   const [initial] = useState(() => loadSessionSnapshot());
   const [plan, setPlan] = useState<PlanState>(initial.plan);
@@ -120,10 +108,7 @@ export default function App() {
       setStorageError(result.error);
       return;
     }
-    if (
-      legacyMigrationSnapshot.current &&
-      sessionSnapshotsEqual(snapshot, legacyMigrationSnapshot.current)
-    ) {
+    if (legacyMigrationSnapshot.current) {
       clearLegacyPlanState();
       legacyMigrationSnapshot.current = null;
     }
@@ -138,6 +123,7 @@ export default function App() {
         setSelectedId(null);
         setSelectedElementId(null);
         setLibraryModal(null);
+        setPendingAction(null);
       }
       if (
         (e.key === "Delete" || e.key === "Backspace") &&

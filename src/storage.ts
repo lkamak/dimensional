@@ -258,9 +258,12 @@ export function savePlanToLibrary(
 }
 
 export function deleteSavedPlan(id: string): StorageResult {
-  tryRemoveItem(planEntryKey(id));
   const index = listSavedPlans().filter((p) => p.id !== id);
-  return writeLibraryIndex(index);
+  const indexResult = writeLibraryIndex(index);
+  if (!indexResult.ok) return indexResult;
+
+  tryRemoveItem(planEntryKey(id));
+  return { ok: true, value: undefined };
 }
 
 export function createBlankPlanState(
