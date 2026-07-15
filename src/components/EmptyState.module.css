@@ -36,6 +36,13 @@
   background: rgba(61, 90, 91, 0.06);
 }
 
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
 .dropHint {
   margin: 14px 0 0 !important;
   font-size: 12px !important;
