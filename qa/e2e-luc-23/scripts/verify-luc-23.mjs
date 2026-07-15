@@ -354,7 +354,7 @@ async function main() {
     await openNamedPlan(page, "Living Room Clean Base");
     await pause(page, 1200);
     await placeFurniture(page, "Desk");
-    await placeFurniture(page, "Bed");
+    await placeFurniture(page, "Queen bed");
     await page.getByRole("button", { name: "Save as" }).click();
     await pause(page, 900);
     await page.getByLabel("Plan name").fill("Layout Experiment B");
