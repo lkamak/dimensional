@@ -63,5 +63,6 @@
   "verdict": "APPROVE",
   "verifiedAt": "2026-07-15T16:42:00Z",
   "prHead": "c09aa16f97d012df5244c2304687ce2670ab0baf",
-  "artifactBranch": "cursor/pr-end-to-end-verification-5dd6"
+  "artifactBranch": "cursor/pr-end-to-end-verification-5dd6",
+  "artifactCommit": "966095a7bb62777e617ef2a1d0e25b4e868b48f0"
 }
