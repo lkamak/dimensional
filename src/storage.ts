@@ -190,12 +190,14 @@ export function listSavedPlans(): SavedPlanMeta[] {
           typeof p.name === "string" &&
           typeof p.updatedAt === "string",
       )
-      .map((p) => ({
-        id: p.id,
-        name: p.name,
-        updatedAt: p.updatedAt,
-        kind: p.kind === "clean" ? "clean" : "full",
-      }))
+      .map(
+        (p): SavedPlanMeta => ({
+          id: p.id,
+          name: p.name,
+          updatedAt: p.updatedAt,
+          kind: p.kind === "clean" ? "clean" : "full",
+        }),
+      )
       .sort(
         (a, b) =>
           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
