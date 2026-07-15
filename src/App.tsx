@@ -83,6 +83,7 @@ export default function App() {
   const [isConverting, setIsConverting] = useState(false);
   const [conversionPreview, setConversionPreview] =
     useState<ConversionPreview | null>(null);
+  const conversionRequestId = useRef(0);
   const sessionHydrated = useRef(false);
   const legacyMigrationSnapshot = useRef<SessionSnapshot | null>(
     initial.needsLegacyMigration
@@ -94,6 +95,12 @@ export default function App() {
         }
       : null,
   );
+
+  const cancelConversion = useCallback(() => {
+    conversionRequestId.current += 1;
+    setIsConverting(false);
+    setConversionPreview(null);
+  }, []);
 
   const isDirty = !planStatesEqual(plan, baselineState);
   const planActive = hasActivePlan(plan);
@@ -134,7 +141,7 @@ export default function App() {
         setSelectedElementId(null);
         setLibraryModal(null);
         setPendingAction(null);
-        setConversionPreview(null);
+        cancelConversion();
       }
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
@@ -158,7 +165,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, selectedElementId]);
+  }, [selectedId, selectedElementId, cancelConversion]);
 
   const selectedItem = useMemo(
     () => plan.items.find((i) => i.id === selectedId) ?? null,
@@ -186,9 +193,9 @@ export default function App() {
       setCalibration({ start: null, end: null });
       setPendingLinePx(null);
       setCalibInput("");
-      setConversionPreview(null);
+      cancelConversion();
     },
-    [],
+    [cancelConversion],
   );
 
   const persistCurrentPlan = useCallback(
@@ -271,9 +278,9 @@ export default function App() {
       setToolMode("calibrate");
       setCalibration({ start: null, end: null });
       setPendingLinePx(null);
-      setConversionPreview(null);
+      cancelConversion();
     },
-    [plan.unitSystem],
+    [plan.unitSystem, cancelConversion],
   );
 
   const handleDrawPlan = useCallback(() => {
@@ -287,8 +294,8 @@ export default function App() {
     setToolMode("draw-wall");
     setCalibration({ start: null, end: null });
     setPendingLinePx(null);
-    setConversionPreview(null);
-  }, [plan.unitSystem]);
+    cancelConversion();
+  }, [plan.unitSystem, cancelConversion]);
 
   const handlePlace = useCallback(
     (preset: CatalogPreset) => {
@@ -397,22 +404,27 @@ export default function App() {
 
   const runConversion = useCallback(async () => {
     if (!plan.imageDataUrl || isConverting) return;
+    const requestId = ++conversionRequestId.current;
     setIsConverting(true);
     setConversionPreview(null);
     try {
       const result = await vectorizeFloorPlan(plan.imageDataUrl);
+      if (requestId !== conversionRequestId.current) return;
       setConversionPreview({
         walls: result.walls,
         warning: result.warning,
       });
       setToolMode("select");
     } catch {
+      if (requestId !== conversionRequestId.current) return;
       setConversionPreview({
         walls: [],
         warning: "Conversion failed. The uploaded image is unchanged.",
       });
     } finally {
-      setIsConverting(false);
+      if (requestId === conversionRequestId.current) {
+        setIsConverting(false);
+      }
     }
   }, [plan.imageDataUrl, isConverting]);
 
@@ -435,14 +447,10 @@ export default function App() {
       imageUnderlayVisible: true,
       imageUnderlayOpacity: 0.35,
     }));
-    setConversionPreview(null);
+    cancelConversion();
     setSelectedElementId(null);
     setSelectedId(null);
-  }, [conversionPreview]);
-
-  const cancelConversion = useCallback(() => {
-    setConversionPreview(null);
-  }, []);
+  }, [conversionPreview, cancelConversion]);
 
   const handleDeleteSavedPlan = useCallback(
     (id: string) => {
@@ -530,7 +538,7 @@ export default function App() {
           setToolMode("select");
           setCalibration({ start: null, end: null });
           setPendingLinePx(null);
-          setConversionPreview(null);
+          cancelConversion();
         }}
       />
 
