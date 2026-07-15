@@ -7,10 +7,15 @@ type TopBarProps = {
   toolMode: ToolMode;
   hasPlan: boolean;
   pixelsPerInch: number | null;
+  activePlanName: string | null;
+  isDirty: boolean;
   onUnitSystemChange: (system: UnitSystem) => void;
   onUpload: (dataUrl: string) => void;
   onDrawPlan: () => void;
   onToolModeChange: (mode: ToolMode) => void;
+  onSave: () => void;
+  onSaveAs: () => void;
+  onOpen: () => void;
   onClearLayout: () => void;
   onClearAll: () => void;
 };
@@ -27,10 +32,15 @@ export function TopBar({
   toolMode,
   hasPlan,
   pixelsPerInch,
+  activePlanName,
+  isDirty,
   onUnitSystemChange,
   onUpload,
   onDrawPlan,
   onToolModeChange,
+  onSave,
+  onSaveAs,
+  onOpen,
   onClearLayout,
   onClearAll,
 }: TopBarProps) {
@@ -45,11 +55,22 @@ export function TopBar({
     reader.readAsDataURL(file);
   }
 
+  const planLabel = activePlanName
+    ? `${activePlanName}${isDirty ? " *" : ""}`
+    : isDirty
+      ? "Unsaved plan *"
+      : null;
+
   return (
     <header className={styles.topbar}>
       <div className={styles.brand}>
         <span className={styles.brandName}>dimensional</span>
         <span className={styles.brandTag}>floor plan</span>
+        {planLabel && (
+          <span className={styles.planName} title={planLabel}>
+            {planLabel}
+          </span>
+        )}
       </div>
 
       <div className={styles.topbarActions}>
@@ -118,6 +139,32 @@ export function TopBar({
               ? "Scale not set"
               : "No plan loaded"}
         </span>
+
+        <div className={styles.divider} />
+
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={onOpen}
+        >
+          Open
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          disabled={!hasPlan || !isDirty}
+          onClick={onSave}
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          disabled={!hasPlan}
+          onClick={onSaveAs}
+        >
+          Save as
+        </button>
 
         <div className={styles.divider} />
 
