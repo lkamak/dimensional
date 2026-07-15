@@ -249,7 +249,10 @@ async function main() {
     await page.getByLabel("Plan name").fill("Living Room Full");
     await pause(page, 800);
     await shot(page, "06-save-full-modal");
-    await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Save", exact: true })
+      .click();
     await pause(page, 1200);
 
     // AC1: Save clean copy without furniture
@@ -323,7 +326,7 @@ async function main() {
     await placeFurniture(page, "Sofa");
     await pause(page, 800);
     // Save on a clean base should route to Save as (protect base)
-    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await pause(page, 1000);
     const protectDialog = page.getByRole("dialog");
     const protectVisible = await protectDialog.isVisible().catch(() => false);
@@ -333,7 +336,9 @@ async function main() {
     await shot(page, "10-save-protects-clean-base");
     await page.getByLabel("Plan name").fill("Layout Experiment A");
     await pause(page, 700);
-    await protectDialog.getByRole("button", { name: "Save" }).click();
+    await protectDialog
+      .getByRole("button", { name: "Save", exact: true })
+      .click();
     await pause(page, 1200);
 
     // Open clean base again and create second experiment
@@ -354,7 +359,10 @@ async function main() {
     await pause(page, 900);
     await page.getByLabel("Plan name").fill("Layout Experiment B");
     await pause(page, 700);
-    await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Save", exact: true })
+      .click();
     await pause(page, 1200);
 
     library = await listLibrary(page);
