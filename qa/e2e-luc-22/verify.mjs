@@ -309,32 +309,96 @@ async function main() {
       `hasImage=${underlayHidden.hasImage}; hiddenVisible=${underlayHidden.imageUnderlayVisible}; shownVisible=${underlayShown.imageUnderlayVisible}; opacity=${underlayShown.imageUnderlayOpacity}`,
     );
 
-    // AC3: select + delete a converted wall
-    // Pick midpoint of first converted wall (before hand-drawn was last)
-    const targetWall =
-      afterHandDraw.walls.find((w) => {
-        // Prefer a wall that looks like a conversion segment (interior cross)
-        const midY = (w.y1 + w.y2) / 2;
-        return midY > 100 && midY < 280;
-      }) || afterHandDraw.walls[0];
-
+    // AC3: select + delete a converted wall (avoid furniture layer hit-testing)
     await page.getByRole("button", { name: /^Select$/i }).click();
     await pause(page, 600);
-    const midX = (targetWall.x1 + targetWall.x2) / 2;
-    const midY = (targetWall.y1 + targetWall.y2) / 2;
-    await clickWorld(page, midX, midY);
-    await pause(page, 1400);
+    // Deselect sofa by clicking empty canvas outside the plan image
+    await clickWorld(page, 10, 10);
+    await pause(page, 800);
+
+    // Prefer outer converted walls away from sofa (fixture rect edges / far from center)
+    const convertedWalls = afterHandDraw.walls.filter((w) => {
+      const midY = (w.y1 + w.y2) / 2;
+      // Exclude the hand-drawn wall near y=60 spanning ~100–380
+      const midX = (w.x1 + w.x2) / 2;
+      const isHandDrawn =
+        Math.abs(w.y1 - 60) < 8 &&
+        Math.abs(w.y2 - 60) < 8 &&
+        midX > 150 &&
+        midX < 300;
+      return !isHandDrawn && (midY < 70 || midY > 290 || midX < 60 || midX > 400);
+    });
+    const candidates =
+      convertedWalls.length > 0 ? convertedWalls : afterHandDraw.walls;
+
+    let inspectorVisible = false;
+    let selectedWall = null;
+    for (const wall of candidates) {
+      // Click near an endpoint (less likely to hit furniture center)
+      const tx = wall.x1;
+      const ty = wall.y1;
+      await clickWorld(page, tx, ty);
+      await pause(page, 1000);
+      const inspector = page
+        .locator("aside")
+        .filter({ hasText: /Wall segment/i });
+      if (await inspector.isVisible().catch(() => false)) {
+        inspectorVisible = true;
+        selectedWall = wall;
+        break;
+      }
+      // Retry midpoint if endpoint missed
+      const midX = (wall.x1 + wall.x2) / 2;
+      const midY = (wall.y1 + wall.y2) / 2;
+      await clickWorld(page, midX, midY);
+      await pause(page, 1000);
+      if (await inspector.isVisible().catch(() => false)) {
+        inspectorVisible = true;
+        selectedWall = wall;
+        break;
+      }
+    }
     await shot(page, "12-wall-selected");
 
-    const inspector = page.locator("aside").filter({ hasText: /Wall segment/i });
-    const inspectorVisible = await inspector
-      .isVisible()
-      .catch(() => false);
     const deleteBtn = page.getByRole("button", { name: /^Delete$/i });
     const deleteVisible = await deleteBtn.isVisible().catch(() => false);
     const wallsBeforeDelete = (await sessionPlan(page)).wallCount;
 
-    if (deleteVisible) {
+    // Drag-edit proof: nudge selected wall if we have one, then delete
+    let editMoved = false;
+    if (inspectorVisible && selectedWall) {
+      const midX = (selectedWall.x1 + selectedWall.x2) / 2;
+      const midY = (selectedWall.y1 + selectedWall.y2) / 2;
+      const start = await worldToScreen(page, midX, midY);
+      await page.mouse.move(start.x, start.y);
+      await page.mouse.down();
+      await page.mouse.move(start.x + 20, start.y + 14, { steps: 10 });
+      await page.mouse.up();
+      await pause(page, 900);
+      const afterDrag = await sessionPlan(page);
+      const moved = afterDrag.walls.find((w) => w.id === selectedWall.id);
+      editMoved = Boolean(
+        moved &&
+          (Math.abs(moved.x1 - selectedWall.x1) > 0.5 ||
+            Math.abs(moved.y1 - selectedWall.y1) > 0.5),
+      );
+      // Ensure wall still selected for delete
+      const stillSelected = await page
+        .locator("aside")
+        .filter({ hasText: /Wall segment/i })
+        .isVisible()
+        .catch(() => false);
+      if (!stillSelected && moved) {
+        await clickWorld(
+          page,
+          (moved.x1 + moved.x2) / 2,
+          (moved.y1 + moved.y2) / 2,
+        );
+        await pause(page, 800);
+      }
+    }
+
+    if (await deleteBtn.isVisible().catch(() => false)) {
       await deleteBtn.click();
     } else {
       await page.keyboard.press("Delete");
@@ -346,9 +410,9 @@ async function main() {
     record(
       "AC3",
       "User can edit/delete converted elements after conversion",
-      (inspectorVisible || deleteVisible || wallsBeforeDelete > 0) &&
+      inspectorVisible &&
         afterDelete.wallCount === wallsBeforeDelete - 1,
-      `inspector=${inspectorVisible}; deleteBtn=${deleteVisible}; before=${wallsBeforeDelete}; after=${afterDelete.wallCount}`,
+      `inspector=${inspectorVisible}; deleteBtn=${deleteVisible}; editMoved=${editMoved}; before=${wallsBeforeDelete}; after=${afterDelete.wallCount}; selected=${selectedWall ? `${selectedWall.x1},${selectedWall.y1}->${selectedWall.x2},${selectedWall.y2}` : "none"}`,
     );
 
     // AC5: cancel path + accept keeps image & furniture
