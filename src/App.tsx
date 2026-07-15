@@ -611,6 +611,10 @@ export default function App() {
           }}
           onSaveAndContinue={() => {
             if (activePlanId && activePlanName) {
+              if (loadSavedPlan(activePlanId)?.kind === "clean") {
+                setLibraryModal("save-as");
+                return;
+              }
               if (!persistCurrentPlan(activePlanId, activePlanName)) return;
             } else {
               setLibraryModal("save-as");
