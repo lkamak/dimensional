@@ -9,6 +9,7 @@ import { PlanLibraryModal } from "./components/PlanLibraryModal";
 import {
   clearLegacyPlanState,
   DEFAULT_STATE,
+  createBlankPlanState,
   deleteSavedPlan,
   listSavedPlans,
   loadSavedPlan,
@@ -20,6 +21,7 @@ import {
 import type {
   CalibrationDraft,
   CatalogPreset,
+  DrawElement,
   FurnitureItem,
   PlanState,
   SessionSnapshot,
@@ -27,6 +29,7 @@ import type {
   ToolMode,
   UnitSystem,
 } from "./types";
+import { hasActivePlan } from "./types";
 import { displayValueToInches, unitLabel } from "./units";
 
 type LibraryModalMode = "open" | "save-as" | "unsaved" | null;
@@ -65,6 +68,9 @@ export default function App() {
     initial.baselineState,
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(
+    null,
+  );
   const [toolMode, setToolMode] = useState<ToolMode>("select");
   const [calibration, setCalibration] = useState<CalibrationDraft>({
     start: null,
@@ -72,7 +78,7 @@ export default function App() {
   });
   const [pendingLinePx, setPendingLinePx] = useState<number | null>(null);
   const [calibInput, setCalibInput] = useState("");
-  const [imageSize, setImageSize] = useState<{
+  const [canvasSize, setCanvasSize] = useState<{
     width: number;
     height: number;
   } | null>(null);
@@ -93,6 +99,8 @@ export default function App() {
   );
 
   const isDirty = !planStatesEqual(plan, baselineState);
+  const planActive = hasActivePlan(plan);
+  const canPlace = Boolean(planActive && plan.pixelsPerInch);
 
   useEffect(() => {
     if (!sessionHydrated.current) {
@@ -128,24 +136,32 @@ export default function App() {
         setCalibration({ start: null, end: null });
         setPendingLinePx(null);
         setSelectedId(null);
+        setSelectedElementId(null);
         setLibraryModal(null);
       }
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
-        selectedId &&
         !(e.target instanceof HTMLInputElement) &&
         !(e.target instanceof HTMLTextAreaElement)
       ) {
-        setPlan((prev) => ({
-          ...prev,
-          items: prev.items.filter((i) => i.id !== selectedId),
-        }));
-        setSelectedId(null);
+        if (selectedId) {
+          setPlan((prev) => ({
+            ...prev,
+            items: prev.items.filter((i) => i.id !== selectedId),
+          }));
+          setSelectedId(null);
+        } else if (selectedElementId) {
+          setPlan((prev) => ({
+            ...prev,
+            elements: prev.elements.filter((el) => el.id !== selectedElementId),
+          }));
+          setSelectedElementId(null);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId]);
+  }, [selectedId, selectedElementId]);
 
   const selectedItem = useMemo(
     () => plan.items.find((i) => i.id === selectedId) ?? null,
@@ -163,6 +179,7 @@ export default function App() {
       setActivePlanId(id);
       setActivePlanName(name);
       setSelectedId(null);
+      setSelectedElementId(null);
       setToolMode(state.pixelsPerInch ? "select" : "calibrate");
       setCalibration({ start: null, end: null });
       setPendingLinePx(null);
@@ -188,18 +205,18 @@ export default function App() {
   );
 
   const handleSave = useCallback(() => {
-    if (!plan.imageDataUrl) return;
+    if (!hasActivePlan(plan)) return;
     if (activePlanId && activePlanName) {
       persistCurrentPlan(activePlanId, activePlanName);
       return;
     }
     setLibraryModal("save-as");
-  }, [plan.imageDataUrl, activePlanId, activePlanName, persistCurrentPlan]);
+  }, [plan, activePlanId, activePlanName, persistCurrentPlan]);
 
   const handleSaveAs = useCallback(() => {
-    if (!plan.imageDataUrl) return;
+    if (!hasActivePlan(plan)) return;
     setLibraryModal("save-as");
-  }, [plan.imageDataUrl]);
+  }, [plan]);
 
   const openPlanById = useCallback(
     (id: string) => {
@@ -233,28 +250,45 @@ export default function App() {
     setPlan((prev) => ({ ...prev, ...patch }));
   }, []);
 
-  const handleUpload = useCallback((dataUrl: string) => {
-    const next = {
-      ...DEFAULT_STATE,
-      imageDataUrl: dataUrl,
-      unitSystem: plan.unitSystem,
-    };
+  const handleUpload = useCallback(
+    (dataUrl: string) => {
+      const next = {
+        ...DEFAULT_STATE,
+        imageDataUrl: dataUrl,
+        unitSystem: plan.unitSystem,
+      };
+      setPlan(next);
+      setBaselineState(next);
+      setActivePlanId(null);
+      setActivePlanName(null);
+      setSelectedId(null);
+      setSelectedElementId(null);
+      setToolMode("calibrate");
+      setCalibration({ start: null, end: null });
+      setPendingLinePx(null);
+    },
+    [plan.unitSystem],
+  );
+
+  const handleDrawPlan = useCallback(() => {
+    const next = createBlankPlanState(plan.unitSystem);
     setPlan(next);
     setBaselineState(next);
     setActivePlanId(null);
     setActivePlanName(null);
     setSelectedId(null);
-    setToolMode("calibrate");
+    setSelectedElementId(null);
+    setToolMode("draw-wall");
     setCalibration({ start: null, end: null });
     setPendingLinePx(null);
   }, [plan.unitSystem]);
 
   const handlePlace = useCallback(
     (preset: CatalogPreset) => {
-      if (!plan.imageDataUrl || !plan.pixelsPerInch) return;
+      if (!hasActivePlan(plan) || !plan.pixelsPerInch) return;
 
-      const cx = imageSize ? imageSize.width / 2 : 400;
-      const cy = imageSize ? imageSize.height / 2 : 300;
+      const cx = canvasSize ? canvasSize.width / 2 : 400;
+      const cy = canvasSize ? canvasSize.height / 2 : 300;
       const offset = plan.items.length * 16;
 
       const item: FurnitureItem = {
@@ -269,14 +303,10 @@ export default function App() {
       };
       setPlan((prev) => ({ ...prev, items: [...prev.items, item] }));
       setSelectedId(item.id);
+      setSelectedElementId(null);
       setToolMode("select");
     },
-    [
-      plan.imageDataUrl,
-      plan.pixelsPerInch,
-      plan.items.length,
-      imageSize,
-    ],
+    [plan, canvasSize],
   );
 
   const handleItemChange = useCallback(
@@ -309,6 +339,22 @@ export default function App() {
       ),
     }));
   }, []);
+
+  const handleElementAdd = useCallback((element: DrawElement) => {
+    setPlan((prev) => ({ ...prev, elements: [...prev.elements, element] }));
+  }, []);
+
+  const handleElementChange = useCallback(
+    (id: string, patch: Partial<DrawElement>) => {
+      setPlan((prev) => ({
+        ...prev,
+        elements: prev.elements.map((el) =>
+          el.id === id ? { ...el, ...patch } : el,
+        ),
+      }));
+    },
+    [],
+  );
 
   const handleCalibrationComplete = useCallback((lineLengthPx: number) => {
     if (lineLengthPx < 4) return;
@@ -353,8 +399,6 @@ export default function App() {
     [savedPlans, activePlanId, refreshSavedPlans],
   );
 
-  const canPlace = Boolean(plan.imageDataUrl && plan.pixelsPerInch);
-
   return (
     <div className="app">
       {storageError && (
@@ -374,12 +418,13 @@ export default function App() {
       <TopBar
         unitSystem={plan.unitSystem}
         toolMode={toolMode}
-        hasImage={Boolean(plan.imageDataUrl)}
+        hasPlan={planActive}
         pixelsPerInch={plan.pixelsPerInch}
         activePlanName={activePlanName}
         isDirty={isDirty}
         onUnitSystemChange={(unitSystem: UnitSystem) => updatePlan({ unitSystem })}
         onUpload={handleUpload}
+        onDrawPlan={handleDrawPlan}
         onToolModeChange={(mode) => {
           setToolMode(mode);
           if (mode === "calibrate") {
@@ -401,6 +446,7 @@ export default function App() {
           setActivePlanId(null);
           setActivePlanName(null);
           setSelectedId(null);
+          setSelectedElementId(null);
           setToolMode("select");
           setCalibration({ start: null, end: null });
           setPendingLinePx(null);
@@ -415,27 +461,41 @@ export default function App() {
         />
 
         <div className="canvas-area">
-          {!plan.imageDataUrl ? (
-            <EmptyState onUpload={handleUpload} />
+          {!planActive ? (
+            <EmptyState onUpload={handleUpload} onDrawPlan={handleDrawPlan} />
           ) : (
             <>
               <PlanCanvas
                 imageDataUrl={plan.imageDataUrl}
+                canvasWidth={plan.canvasWidth}
+                canvasHeight={plan.canvasHeight}
                 pixelsPerInch={plan.pixelsPerInch}
                 items={plan.items}
+                elements={plan.elements}
                 selectedId={selectedId}
+                selectedElementId={selectedElementId}
                 toolMode={toolMode}
                 unitSystem={plan.unitSystem}
                 calibration={calibration}
                 onSelect={setSelectedId}
+                onElementSelect={setSelectedElementId}
                 onItemChange={handleItemChange}
+                onElementChange={handleElementChange}
+                onElementAdd={handleElementAdd}
                 onCalibrationChange={setCalibration}
                 onCalibrationComplete={handleCalibrationComplete}
-                onImageSize={setImageSize}
+                onCanvasSize={setCanvasSize}
               />
               {toolMode === "calibrate" && pendingLinePx == null && (
                 <div className="overlay-hint">
                   Click two points on a wall or dimension line with a known length
+                </div>
+              )}
+              {toolMode.startsWith("draw-") && (
+                <div className="overlay-hint">
+                  {toolMode === "draw-wall" || toolMode === "draw-line"
+                    ? "Click two points to draw · Esc to cancel"
+                    : "Click and drag to draw · Esc to cancel"}
                 </div>
               )}
               {plan.pixelsPerInch && toolMode === "select" && (

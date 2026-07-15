@@ -1,4 +1,5 @@
 import type {
+  DrawElement,
   PlanState,
   SavedPlan,
   SavedPlanMeta,
@@ -6,8 +7,10 @@ import type {
   StorageError,
   StorageResult,
 } from "./types";
+import { DEFAULT_CANVAS_HEIGHT, DEFAULT_CANVAS_WIDTH } from "./types";
 
 const LEGACY_KEY = "dimensional.plan.v1";
+const PRE_LIBRARY_KEY = "dimensional.plan.v2";
 const SESSION_KEY = "dimensional.session.v2";
 const LIBRARY_INDEX_KEY = "dimensional.library.index.v2";
 const planEntryKey = (id: string) => `dimensional.library.plan.${id}.v2`;
@@ -18,19 +21,43 @@ type LoadedSessionSnapshot = SessionSnapshot & {
 
 export const DEFAULT_STATE: PlanState = {
   imageDataUrl: null,
+  canvasWidth: null,
+  canvasHeight: null,
   pixelsPerInch: null,
   unitSystem: "imperial",
   items: [],
+  elements: [],
 };
 
-function normalizePlanState(raw: Partial<PlanState> | null | undefined): PlanState {
+function parseElements(raw: unknown): DrawElement[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (el): el is DrawElement =>
+      el != null &&
+      typeof el === "object" &&
+      typeof (el as DrawElement).id === "string" &&
+      ["wall", "room", "line", "rect"].includes((el as DrawElement).kind) &&
+      typeof (el as DrawElement).x1 === "number" &&
+      typeof (el as DrawElement).y1 === "number" &&
+      typeof (el as DrawElement).x2 === "number" &&
+      typeof (el as DrawElement).y2 === "number",
+  );
+}
+
+function normalizePlanState(
+  raw: Partial<PlanState> | null | undefined,
+): PlanState {
   if (!raw) return { ...DEFAULT_STATE };
   return {
     imageDataUrl: raw.imageDataUrl ?? null,
+    canvasWidth: typeof raw.canvasWidth === "number" ? raw.canvasWidth : null,
+    canvasHeight:
+      typeof raw.canvasHeight === "number" ? raw.canvasHeight : null,
     pixelsPerInch:
       typeof raw.pixelsPerInch === "number" ? raw.pixelsPerInch : null,
     unitSystem: raw.unitSystem === "metric" ? "metric" : "imperial",
     items: Array.isArray(raw.items) ? raw.items : [],
+    elements: parseElements(raw.elements),
   };
 }
 
@@ -97,13 +124,13 @@ export function loadSessionSnapshot(): LoadedSessionSnapshot {
     // fall through to migration / default
   }
 
-  const legacy = loadLegacyPlanState();
-  if (legacy) {
+  const migrated = loadPreLibraryPlanState();
+  if (migrated) {
     return {
-      plan: legacy,
+      plan: migrated,
       activePlanId: null,
       activePlanName: null,
-      baselineState: legacy,
+      baselineState: migrated,
       needsLegacyMigration: true,
     };
   }
@@ -118,13 +145,13 @@ export function loadSessionSnapshot(): LoadedSessionSnapshot {
   };
 }
 
-function loadLegacyPlanState(): PlanState | null {
+function loadPreLibraryPlanState(): PlanState | null {
   try {
-    const raw = localStorage.getItem(LEGACY_KEY);
+    const raw =
+      localStorage.getItem(PRE_LIBRARY_KEY) ?? localStorage.getItem(LEGACY_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<PlanState>;
-    const plan = normalizePlanState(parsed);
-    return plan;
+    return normalizePlanState(parsed);
   } catch {
     return null;
   }
@@ -132,6 +159,7 @@ function loadLegacyPlanState(): PlanState | null {
 
 export function clearLegacyPlanState(): void {
   tryRemoveItem(LEGACY_KEY);
+  tryRemoveItem(PRE_LIBRARY_KEY);
 }
 
 export function saveSessionSnapshot(snapshot: SessionSnapshot): StorageResult {
@@ -233,4 +261,15 @@ export function deleteSavedPlan(id: string): StorageResult {
   tryRemoveItem(planEntryKey(id));
   const index = listSavedPlans().filter((p) => p.id !== id);
   return writeLibraryIndex(index);
+}
+
+export function createBlankPlanState(
+  unitSystem: PlanState["unitSystem"] = "imperial",
+): PlanState {
+  return {
+    ...DEFAULT_STATE,
+    canvasWidth: DEFAULT_CANVAS_WIDTH,
+    canvasHeight: DEFAULT_CANVAS_HEIGHT,
+    unitSystem,
+  };
 }

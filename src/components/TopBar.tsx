@@ -5,12 +5,13 @@ import styles from "./TopBar.module.css";
 type TopBarProps = {
   unitSystem: UnitSystem;
   toolMode: ToolMode;
-  hasImage: boolean;
+  hasPlan: boolean;
   pixelsPerInch: number | null;
   activePlanName: string | null;
   isDirty: boolean;
   onUnitSystemChange: (system: UnitSystem) => void;
   onUpload: (dataUrl: string) => void;
+  onDrawPlan: () => void;
   onToolModeChange: (mode: ToolMode) => void;
   onSave: () => void;
   onSaveAs: () => void;
@@ -19,15 +20,23 @@ type TopBarProps = {
   onClearAll: () => void;
 };
 
+const DRAW_TOOLS: { mode: ToolMode; label: string }[] = [
+  { mode: "draw-wall", label: "Wall" },
+  { mode: "draw-room", label: "Room" },
+  { mode: "draw-line", label: "Line" },
+  { mode: "draw-rect", label: "Rect" },
+];
+
 export function TopBar({
   unitSystem,
   toolMode,
-  hasImage,
+  hasPlan,
   pixelsPerInch,
   activePlanName,
   isDirty,
   onUnitSystemChange,
   onUpload,
+  onDrawPlan,
   onToolModeChange,
   onSave,
   onSaveAs,
@@ -82,22 +91,51 @@ export function TopBar({
         >
           Upload plan
         </button>
-
-        <button
-          type="button"
-          className={`btn btn-ghost ${toolMode === "calibrate" ? "btn-active" : ""}`}
-          disabled={!hasImage}
-          onClick={() =>
-            onToolModeChange(toolMode === "calibrate" ? "select" : "calibrate")
-          }
-        >
-          Calibrate
+        <button type="button" className="btn btn-ghost" onClick={onDrawPlan}>
+          Draw plan
         </button>
+
+        {hasPlan && (
+          <>
+            <div className={styles.divider} />
+
+            <button
+              type="button"
+              className={`btn btn-ghost ${toolMode === "select" ? "btn-active" : ""}`}
+              onClick={() => onToolModeChange("select")}
+            >
+              Select
+            </button>
+
+            {DRAW_TOOLS.map(({ mode, label }) => (
+              <button
+                key={mode}
+                type="button"
+                className={`btn btn-ghost ${toolMode === mode ? "btn-active" : ""}`}
+                onClick={() => onToolModeChange(mode)}
+              >
+                {label}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              className={`btn btn-ghost ${toolMode === "calibrate" ? "btn-active" : ""}`}
+              onClick={() =>
+                onToolModeChange(
+                  toolMode === "calibrate" ? "select" : "calibrate",
+                )
+              }
+            >
+              Calibrate
+            </button>
+          </>
+        )}
 
         <span className={styles.scalePill}>
           {pixelsPerInch
             ? `Scale set · 1 in = ${pixelsPerInch.toFixed(1)} px`
-            : hasImage
+            : hasPlan
               ? "Scale not set"
               : "No plan loaded"}
         </span>
@@ -114,7 +152,7 @@ export function TopBar({
         <button
           type="button"
           className="btn btn-ghost"
-          disabled={!hasImage || !isDirty}
+          disabled={!hasPlan || !isDirty}
           onClick={onSave}
         >
           Save
@@ -122,7 +160,7 @@ export function TopBar({
         <button
           type="button"
           className="btn btn-ghost"
-          disabled={!hasImage}
+          disabled={!hasPlan}
           onClick={onSaveAs}
         >
           Save as
@@ -152,7 +190,7 @@ export function TopBar({
         <button
           type="button"
           className="btn btn-ghost"
-          disabled={!hasImage}
+          disabled={!hasPlan}
           onClick={onClearLayout}
         >
           Clear furniture
@@ -160,7 +198,7 @@ export function TopBar({
         <button
           type="button"
           className="btn btn-ghost btn-danger"
-          disabled={!hasImage}
+          disabled={!hasPlan}
           onClick={onClearAll}
         >
           Reset
