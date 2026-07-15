@@ -1,0 +1,67 @@
+{
+  "commit": "c09aa16f97d012df5244c2304687ce2670ab0baf",
+  "prd": "LUC-22",
+  "changeType": "frontend-only",
+  "passed": true,
+  "results": [
+    {
+      "id": "AC1",
+      "criterion": "User can convert an uploaded plan image into editable vector geometry",
+      "pass": true,
+      "detail": "detected=6; acceptedWalls=6; modal=Convert to drawing |  | Detected 6 wall segments. Preview is shown on the canvas in orange. Accept to make them editable, or cancel to keep the image only. |  | Cancel | Accept 6 walls | Retry"
+    },
+    {
+      "id": "AC2",
+      "criterion": "Converted geometry uses the same data model/tools as hand-drawn plans",
+      "pass": true,
+      "detail": "drawElements=true; wallTool=true; wallsAfterHandDraw=7; header=dimensional | floor plan | Unsaved plan * | Upload plan | Draw plan | Select | Wall | Room | Line | Rect | Calibrate | Convert to drawing | Hide underlay | Scale set \u00b7 1 in = 2.7 px \u00b7 walls editable | Open | Save | Save as | ft / in | metric | Clear furniture | Clear walls | Reset"
+    },
+    {
+      "id": "AC4",
+      "criterion": "Original image remains available as underlay or can be hidden after conversion",
+      "pass": true,
+      "detail": "hasImage=true; hiddenVisible=false; shownVisible=true; opacity=0.35"
+    },
+    {
+      "id": "AC3",
+      "criterion": "User can edit/delete converted elements after conversion",
+      "pass": true,
+      "detail": "inspector=true; deleteBtn=true; editMoved=false; before=7; after=6; selected=442,39->37,39.00000000000005"
+    },
+    {
+      "id": "AC5",
+      "criterion": "Failed/poor conversion does not destroy the uploaded image or existing furniture without confirmation",
+      "pass": true,
+      "detail": "cancelSafe=true; afterAccept.items=[\"Sofa\"]; hasImage=true; previewModal=Convert to drawing |  | Detected 6 wall segments. Preview is shown on the canvas in orange. Accept to make them editable, or cancel to keep the image only. |  | Cancel | Accept 6 w"
+    },
+    {
+      "id": "AC6",
+      "criterion": "Scale (pixelsPerInch) remains valid after conversion",
+      "pass": true,
+      "detail": "before=2.6686507936507935; afterAccept=2.6686507936507935; afterDelete=2.6686507936507935; header=dimensional | floor plan | Unsaved plan * | Upload plan | Draw plan | Select | Wall | Room | Line | Rect | Calibrate | Convert to drawing | Hide underlay | Scale set \u00b7 1 in = 2.7 px \u00b7 walls editable | Open | Save | Save as | ft / in | metric | Clear furniture | Clear walls | Reset"
+    }
+  ],
+  "artifacts": [
+    "01-empty.png",
+    "02-uploaded.png",
+    "03-calibrated.png",
+    "04-furniture-placed.png",
+    "05-conversion-preview-cancel.png",
+    "06-after-cancel.png",
+    "07-conversion-preview-accept.png",
+    "08-walls-accepted.png",
+    "09-hand-drawn-wall.png",
+    "10-underlay-hidden.png",
+    "11-underlay-shown.png",
+    "12-wall-selected.png",
+    "13-wall-deleted.png",
+    "14-final.png",
+    "luc-22-e2e-demo.webm",
+    "luc-22-e2e-preview.gif",
+    "results.json"
+  ],
+  "verdict": "APPROVE",
+  "verifiedAt": "2026-07-15T16:42:00Z",
+  "prHead": "c09aa16f97d012df5244c2304687ce2670ab0baf",
+  "artifactBranch": "cursor/pr-end-to-end-verification-5dd6"
+}
