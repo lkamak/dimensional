@@ -32,6 +32,7 @@ import type {
 } from "./types";
 import { hasActivePlan } from "./types";
 import { displayValueToInches, unitLabel } from "./units";
+import { vectorizeFloorPlan } from "./vectorize";
 
 type LibraryModalMode =
   | "open"
@@ -39,6 +40,11 @@ type LibraryModalMode =
   | "save-clean-as"
   | "unsaved"
   | null;
+
+type ConversionPreview = {
+  walls: { start: { x: number; y: number }; end: { x: number; y: number } }[];
+  warning?: string;
+};
 
 function createId(): string {
   return crypto.randomUUID();
@@ -80,6 +86,10 @@ export default function App() {
   const [libraryModal, setLibraryModal] = useState<LibraryModalMode>(null);
   const [pendingAction, setPendingAction] = useState<"open" | null>(null);
   const [storageError, setStorageError] = useState<StorageError | null>(null);
+  const [isConverting, setIsConverting] = useState(false);
+  const [conversionPreview, setConversionPreview] =
+    useState<ConversionPreview | null>(null);
+  const conversionRequestId = useRef(0);
   const sessionHydrated = useRef(false);
   const legacyMigrationSnapshot = useRef<SessionSnapshot | null>(
     initial.needsLegacyMigration
@@ -92,9 +102,16 @@ export default function App() {
       : null,
   );
 
+  const cancelConversion = useCallback(() => {
+    conversionRequestId.current += 1;
+    setIsConverting(false);
+    setConversionPreview(null);
+  }, []);
+
   const isDirty = !planStatesEqual(plan, baselineState);
   const planActive = hasActivePlan(plan);
   const canPlace = Boolean(planActive && plan.pixelsPerInch);
+  const wallCount = plan.elements.filter((el) => el.kind === "wall").length;
 
   useEffect(() => {
     if (!sessionHydrated.current) {
@@ -130,6 +147,7 @@ export default function App() {
         setSelectedElementId(null);
         setLibraryModal(null);
         setPendingAction(null);
+        cancelConversion();
       }
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
@@ -153,11 +171,16 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, selectedElementId]);
+  }, [selectedId, selectedElementId, cancelConversion]);
 
   const selectedItem = useMemo(
     () => plan.items.find((i) => i.id === selectedId) ?? null,
     [plan.items, selectedId],
+  );
+
+  const selectedElement = useMemo(
+    () => plan.elements.find((el) => el.id === selectedElementId) ?? null,
+    [plan.elements, selectedElementId],
   );
 
   const refreshSavedPlans = useCallback(() => {
@@ -176,8 +199,9 @@ export default function App() {
       setCalibration({ start: null, end: null });
       setPendingLinePx(null);
       setCalibInput("");
+      cancelConversion();
     },
-    [],
+    [cancelConversion],
   );
 
   const persistCurrentPlan = useCallback(
@@ -275,6 +299,8 @@ export default function App() {
         ...DEFAULT_STATE,
         imageDataUrl: dataUrl,
         unitSystem: plan.unitSystem,
+        imageUnderlayVisible: true,
+        imageUnderlayOpacity: 1,
       };
       setPlan(next);
       setBaselineState(next);
@@ -285,8 +311,9 @@ export default function App() {
       setToolMode("calibrate");
       setCalibration({ start: null, end: null });
       setPendingLinePx(null);
+      cancelConversion();
     },
-    [plan.unitSystem],
+    [plan.unitSystem, cancelConversion],
   );
 
   const handleDrawPlan = useCallback(() => {
@@ -300,7 +327,8 @@ export default function App() {
     setToolMode("draw-wall");
     setCalibration({ start: null, end: null });
     setPendingLinePx(null);
-  }, [plan.unitSystem]);
+    cancelConversion();
+  }, [plan.unitSystem, cancelConversion]);
 
   const handlePlace = useCallback(
     (preset: CatalogPreset) => {
@@ -346,6 +374,14 @@ export default function App() {
       items: prev.items.filter((i) => i.id !== id),
     }));
     setSelectedId((cur) => (cur === id ? null : cur));
+  }, []);
+
+  const handleDeleteElement = useCallback((id: string) => {
+    setPlan((prev) => ({
+      ...prev,
+      elements: prev.elements.filter((el) => el.id !== id),
+    }));
+    setSelectedElementId((cur) => (cur === id ? null : cur));
   }, []);
 
   const handleRotate = useCallback((id: string, delta: number) => {
@@ -399,6 +435,56 @@ export default function App() {
     setCalibration({ start: null, end: null });
   }, []);
 
+  const runConversion = useCallback(async () => {
+    if (!plan.imageDataUrl || isConverting) return;
+    const requestId = ++conversionRequestId.current;
+    setIsConverting(true);
+    setConversionPreview(null);
+    try {
+      const result = await vectorizeFloorPlan(plan.imageDataUrl);
+      if (requestId !== conversionRequestId.current) return;
+      setConversionPreview({
+        walls: result.walls,
+        warning: result.warning,
+      });
+      setToolMode("select");
+    } catch {
+      if (requestId !== conversionRequestId.current) return;
+      setConversionPreview({
+        walls: [],
+        warning: "Conversion failed. The uploaded image is unchanged.",
+      });
+    } finally {
+      if (requestId === conversionRequestId.current) {
+        setIsConverting(false);
+      }
+    }
+  }, [plan.imageDataUrl, isConverting]);
+
+  const acceptConversion = useCallback(() => {
+    if (!conversionPreview) return;
+    const newWalls: DrawElement[] = conversionPreview.walls.map((w) => ({
+      id: createId(),
+      kind: "wall" as const,
+      x1: w.start.x,
+      y1: w.start.y,
+      x2: w.end.x,
+      y2: w.end.y,
+    }));
+    setPlan((prev) => ({
+      ...prev,
+      elements: [
+        ...prev.elements.filter((el) => el.kind !== "wall"),
+        ...newWalls,
+      ],
+      imageUnderlayVisible: true,
+      imageUnderlayOpacity: 0.35,
+    }));
+    cancelConversion();
+    setSelectedElementId(null);
+    setSelectedId(null);
+  }, [conversionPreview, cancelConversion]);
+
   const handleDeleteSavedPlan = useCallback(
     (id: string) => {
       const meta = savedPlans.find((p) => p.id === id);
@@ -438,7 +524,11 @@ export default function App() {
         unitSystem={plan.unitSystem}
         toolMode={toolMode}
         hasPlan={planActive}
+        hasImage={Boolean(plan.imageDataUrl)}
         pixelsPerInch={plan.pixelsPerInch}
+        hasWalls={wallCount > 0}
+        imageUnderlayVisible={plan.imageUnderlayVisible}
+        isConverting={isConverting}
         activePlanName={activePlanName}
         isDirty={isDirty}
         onUnitSystemChange={(unitSystem: UnitSystem) => updatePlan({ unitSystem })}
@@ -451,6 +541,12 @@ export default function App() {
             setPendingLinePx(null);
           }
         }}
+        onConvert={() => {
+          void runConversion();
+        }}
+        onToggleUnderlay={() =>
+          updatePlan({ imageUnderlayVisible: !plan.imageUnderlayVisible })
+        }
         onSave={handleSave}
         onSaveAs={handleSaveAs}
         onSaveCleanAs={handleSaveCleanAs}
@@ -458,6 +554,12 @@ export default function App() {
         onClearLayout={() => {
           updatePlan({ items: [] });
           setSelectedId(null);
+        }}
+        onClearWalls={() => {
+          updatePlan({
+            elements: plan.elements.filter((el) => el.kind !== "wall"),
+          });
+          setSelectedElementId(null);
         }}
         onClearAll={() => {
           const next = { ...DEFAULT_STATE, unitSystem: plan.unitSystem };
@@ -470,6 +572,7 @@ export default function App() {
           setToolMode("select");
           setCalibration({ start: null, end: null });
           setPendingLinePx(null);
+          cancelConversion();
         }}
       />
 
@@ -497,6 +600,9 @@ export default function App() {
                 toolMode={toolMode}
                 unitSystem={plan.unitSystem}
                 calibration={calibration}
+                imageUnderlayVisible={plan.imageUnderlayVisible}
+                imageUnderlayOpacity={plan.imageUnderlayOpacity}
+                conversionPreview={conversionPreview?.walls}
                 onSelect={setSelectedId}
                 onElementSelect={setSelectedElementId}
                 onItemChange={handleItemChange}
@@ -529,10 +635,13 @@ export default function App() {
 
         <Inspector
           item={selectedItem}
+          element={selectedElement}
+          pixelsPerInch={plan.pixelsPerInch}
           unitSystem={plan.unitSystem}
           onChange={handleItemChange}
           onDelete={handleDelete}
           onRotate={handleRotate}
+          onDeleteElement={handleDeleteElement}
         />
       </div>
 
@@ -580,6 +689,56 @@ export default function App() {
                 onClick={confirmCalibration}
               >
                 Apply scale
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {conversionPreview != null && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal modal-wide">
+            <h2>Convert to drawing</h2>
+            <p>
+              {conversionPreview.walls.length > 0
+                ? `Detected ${conversionPreview.walls.length} wall segment${conversionPreview.walls.length === 1 ? "" : "s"}. Preview is shown on the canvas in orange. Accept to make them editable, or cancel to keep the image only.`
+                : "No wall segments were detected in this image."}
+            </p>
+            {conversionPreview.warning && (
+              <p className="modal-warning">{conversionPreview.warning}</p>
+            )}
+            {wallCount > 0 && conversionPreview.walls.length > 0 && (
+              <p className="modal-warning">
+                Accepting will replace your existing {wallCount} wall segment
+                {wallCount === 1 ? "" : "s"}. Other drawings, furniture, and the
+                uploaded image are kept.
+              </p>
+            )}
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={cancelConversion}
+              >
+                Cancel
+              </button>
+              {conversionPreview.walls.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={acceptConversion}
+                >
+                  Accept {conversionPreview.walls.length} walls
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  void runConversion();
+                }}
+              >
+                Retry
               </button>
             </div>
           </div>

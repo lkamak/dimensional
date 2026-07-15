@@ -28,6 +28,8 @@ export const DEFAULT_STATE: PlanState = {
   unitSystem: "imperial",
   items: [],
   elements: [],
+  imageUnderlayVisible: true,
+  imageUnderlayOpacity: 1,
 };
 
 function parseElements(raw: unknown): DrawElement[] {
@@ -45,10 +47,56 @@ function parseElements(raw: unknown): DrawElement[] {
   );
 }
 
+/** Migrate LUC-22 WallSegment[] (`walls`) into DrawElement walls if needed. */
+function parseLegacyWalls(raw: unknown): DrawElement[] {
+  if (!Array.isArray(raw)) return [];
+  const out: DrawElement[] = [];
+  for (const w of raw) {
+    if (
+      w == null ||
+      typeof w !== "object" ||
+      typeof (w as { id?: unknown }).id !== "string" ||
+      (w as { start?: unknown }).start == null ||
+      (w as { end?: unknown }).end == null
+    ) {
+      continue;
+    }
+    const start = (w as { start: { x?: unknown; y?: unknown } }).start;
+    const end = (w as { end: { x?: unknown; y?: unknown } }).end;
+    if (
+      typeof start.x !== "number" ||
+      typeof start.y !== "number" ||
+      typeof end.x !== "number" ||
+      typeof end.y !== "number"
+    ) {
+      continue;
+    }
+    out.push({
+      id: (w as { id: string }).id,
+      kind: "wall",
+      x1: start.x,
+      y1: start.y,
+      x2: end.x,
+      y2: end.y,
+    });
+  }
+  return out;
+}
+
+function clampOpacity(value: unknown, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.min(1, Math.max(0, value));
+}
+
 function normalizePlanState(
-  raw: Partial<PlanState> | null | undefined,
+  raw: Partial<PlanState> & { walls?: unknown } | null | undefined,
 ): PlanState {
   if (!raw) return { ...DEFAULT_STATE };
+  const fromElements = parseElements(raw.elements);
+  const elements =
+    fromElements.length > 0
+      ? fromElements
+      : parseLegacyWalls((raw as { walls?: unknown }).walls);
   return {
     imageDataUrl: raw.imageDataUrl ?? null,
     canvasWidth: typeof raw.canvasWidth === "number" ? raw.canvasWidth : null,
@@ -58,7 +106,15 @@ function normalizePlanState(
       typeof raw.pixelsPerInch === "number" ? raw.pixelsPerInch : null,
     unitSystem: raw.unitSystem === "metric" ? "metric" : "imperial",
     items: Array.isArray(raw.items) ? raw.items : [],
-    elements: parseElements(raw.elements),
+    elements,
+    imageUnderlayVisible:
+      typeof raw.imageUnderlayVisible === "boolean"
+        ? raw.imageUnderlayVisible
+        : DEFAULT_STATE.imageUnderlayVisible,
+    imageUnderlayOpacity: clampOpacity(
+      raw.imageUnderlayOpacity,
+      DEFAULT_STATE.imageUnderlayOpacity,
+    ),
   };
 }
 

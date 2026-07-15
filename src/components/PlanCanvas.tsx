@@ -33,6 +33,9 @@ type PlanCanvasProps = {
   toolMode: ToolMode;
   unitSystem: UnitSystem;
   calibration: CalibrationDraft;
+  imageUnderlayVisible?: boolean;
+  imageUnderlayOpacity?: number;
+  conversionPreview?: { start: { x: number; y: number }; end: { x: number; y: number } }[];
   onSelect: (id: string | null) => void;
   onElementSelect: (id: string | null) => void;
   onItemChange: (id: string, patch: Partial<FurnitureItem>) => void;
@@ -275,6 +278,9 @@ export function PlanCanvas({
   toolMode,
   unitSystem,
   calibration,
+  imageUnderlayVisible = true,
+  imageUnderlayOpacity = 1,
+  conversionPreview,
   onSelect,
   onElementSelect,
   onItemChange,
@@ -690,15 +696,26 @@ export function PlanCanvas({
               listening={!isCalibrating && !drawKind}
             />
           )}
-          {image && (
+          {image && imageUnderlayVisible && (
             <KonvaImage
               image={image}
               width={image.width}
               height={image.height}
+              opacity={imageUnderlayOpacity}
               listening={!isCalibrating && !drawKind}
             />
           )}
           {elementNodes}
+          {conversionPreview?.map((seg, i) => (
+            <Line
+              key={`preview-${i}`}
+              points={[seg.start.x, seg.start.y, seg.end.x, seg.end.y]}
+              stroke="rgba(245, 78, 0, 0.75)"
+              strokeWidth={2 / scale}
+              dash={[8 / scale, 4 / scale]}
+              listening={false}
+            />
+          ))}
           {furnitureNodes}
           {drawDraft?.end &&
             renderDraftPreview(

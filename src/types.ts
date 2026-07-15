@@ -39,6 +39,10 @@ export type PlanState = {
   unitSystem: UnitSystem;
   items: FurnitureItem[];
   elements: DrawElement[];
+  /** When an image is present, whether it is shown beneath drawings. */
+  imageUnderlayVisible: boolean;
+  /** Image underlay opacity in [0, 1]; lowered after convert-to-drawing. */
+  imageUnderlayOpacity: number;
 };
 
 export type SavedPlanKind = "full" | "clean";

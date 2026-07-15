@@ -105,6 +105,20 @@
   box-shadow: 0 0 0 3px var(--selection-soft);
 }
 
+.modal-wide {
+  width: min(460px, calc(100vw - 32px));
+}
+
+.modal-warning {
+  margin: -8px 0 16px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(245, 78, 0, 0.08);
+  border: 1px solid rgba(245, 78, 0, 0.2);
+  color: var(--fg);
+  font-size: 13px;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;

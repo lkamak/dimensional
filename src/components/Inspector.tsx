@@ -1,6 +1,7 @@
-import type { FurnitureItem, UnitSystem } from "../types";
+import type { DrawElement, FurnitureItem, UnitSystem } from "../types";
 import {
   displayValueToInches,
+  formatLength,
   inchesToDisplayValue,
   unitLabel,
 } from "../units";
@@ -8,23 +9,81 @@ import styles from "./Inspector.module.css";
 
 type InspectorProps = {
   item: FurnitureItem | null;
+  element: DrawElement | null;
+  pixelsPerInch: number | null;
   unitSystem: UnitSystem;
   onChange: (id: string, patch: Partial<FurnitureItem>) => void;
   onDelete: (id: string) => void;
   onRotate: (id: string, delta: number) => void;
+  onDeleteElement: (id: string) => void;
 };
+
+function elementLengthPx(el: DrawElement): number {
+  return Math.hypot(el.x2 - el.x1, el.y2 - el.y1);
+}
+
+function elementLabel(kind: DrawElement["kind"]): string {
+  switch (kind) {
+    case "wall":
+      return "Wall segment";
+    case "room":
+      return "Room";
+    case "line":
+      return "Line";
+    case "rect":
+      return "Rectangle";
+  }
+}
 
 export function Inspector({
   item,
+  element,
+  pixelsPerInch,
   unitSystem,
   onChange,
   onDelete,
   onRotate,
+  onDeleteElement,
 }: InspectorProps) {
+  if (element && !item) {
+    const lengthPx = elementLengthPx(element);
+    const lengthIn = pixelsPerInch ? lengthPx / pixelsPerInch : null;
+    const isLineLike = element.kind === "wall" || element.kind === "line";
+
+    return (
+      <aside className={styles.inspector}>
+        <h2 className={styles.heading}>{elementLabel(element.kind)}</h2>
+        {isLineLike ? (
+          <p className={styles.sub}>
+            {lengthIn != null
+              ? formatLength(lengthIn, unitSystem)
+              : `${Math.round(lengthPx)} px`}
+            {lengthIn == null && pixelsPerInch == null
+              ? " (set scale to see real length)"
+              : ""}
+          </p>
+        ) : (
+          <p className={styles.sub}>Selected drawing element</p>
+        )}
+
+        <div className={styles.actions}>
+          <button
+            type="button"
+            className="btn btn-ghost btn-danger"
+            onClick={() => onDeleteElement(element.id)}
+          >
+            Delete
+          </button>
+        </div>
+      </aside>
+    );
+  }
+
   if (!item) {
     return (
       <aside className={styles.empty}>
-        Select a piece of furniture to edit its label, size, and rotation.
+        Select furniture or a drawing to edit. Use draw tools or Convert to
+        drawing to add editable geometry.
       </aside>
     );
   }

@@ -6,18 +6,25 @@ type TopBarProps = {
   unitSystem: UnitSystem;
   toolMode: ToolMode;
   hasPlan: boolean;
+  hasImage: boolean;
   pixelsPerInch: number | null;
+  hasWalls: boolean;
+  imageUnderlayVisible: boolean;
+  isConverting: boolean;
   activePlanName: string | null;
   isDirty: boolean;
   onUnitSystemChange: (system: UnitSystem) => void;
   onUpload: (dataUrl: string) => void;
   onDrawPlan: () => void;
   onToolModeChange: (mode: ToolMode) => void;
+  onConvert: () => void;
+  onToggleUnderlay: () => void;
   onSave: () => void;
   onSaveAs: () => void;
   onSaveCleanAs: () => void;
   onOpen: () => void;
   onClearLayout: () => void;
+  onClearWalls: () => void;
   onClearAll: () => void;
 };
 
@@ -32,18 +39,25 @@ export function TopBar({
   unitSystem,
   toolMode,
   hasPlan,
+  hasImage,
   pixelsPerInch,
+  hasWalls,
+  imageUnderlayVisible,
+  isConverting,
   activePlanName,
   isDirty,
   onUnitSystemChange,
   onUpload,
   onDrawPlan,
   onToolModeChange,
+  onConvert,
+  onToggleUnderlay,
   onSave,
   onSaveAs,
   onSaveCleanAs,
   onOpen,
   onClearLayout,
+  onClearWalls,
   onClearAll,
 }: TopBarProps) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -131,6 +145,26 @@ export function TopBar({
             >
               Calibrate
             </button>
+
+            {hasImage && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  disabled={isConverting}
+                  onClick={onConvert}
+                >
+                  {isConverting ? "Converting…" : "Convert to drawing"}
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-ghost ${imageUnderlayVisible ? "" : "btn-active"}`}
+                  onClick={onToggleUnderlay}
+                >
+                  {imageUnderlayVisible ? "Hide underlay" : "Show underlay"}
+                </button>
+              </>
+            )}
           </>
         )}
 
@@ -140,6 +174,7 @@ export function TopBar({
             : hasPlan
               ? "Scale not set"
               : "No plan loaded"}
+          {hasWalls ? " · walls editable" : ""}
         </span>
 
         <div className={styles.divider} />
@@ -205,6 +240,14 @@ export function TopBar({
           onClick={onClearLayout}
         >
           Clear furniture
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          disabled={!hasWalls}
+          onClick={onClearWalls}
+        >
+          Clear walls
         </button>
         <button
           type="button"
