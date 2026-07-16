@@ -1,0 +1,91 @@
+{
+  "commit": "ebadbb40a5ccc242dd52bcd65b2e210dfd79ad6a",
+  "prd": "DIM-19",
+  "prdUrl": "https://3p-agents.atlassian.net/browse/DIM-19",
+  "changeType": "frontend-only",
+  "passed": true,
+  "results": [
+    {
+      "id": "AC1",
+      "criterion": "Selecting furniture in Select mode displays a small rotation handle adjacent to the item",
+      "pass": true,
+      "detail": "handles=1; stroke=#3d5a5b; radius=5.952; hit=26.190"
+    },
+    {
+      "id": "AC2",
+      "criterion": "Dragging the handle rotates the furniture smoothly around its center and previews during the drag",
+      "pass": true,
+      "detail": "rotation 0→90; pos (240,180)→(240,180); previewPath=true"
+    },
+    {
+      "id": "AC3",
+      "criterion": "The resulting angle snaps to 15° increments and remains normalized to 0–359°",
+      "pass": true,
+      "detail": "rotation=90; inspector=90"
+    },
+    {
+      "id": "AC4",
+      "criterion": "Releasing the handle commits the final rotation; the Inspector value and rotation-aware overlap styling reflect the new angle",
+      "pass": true,
+      "detail": "inspectorAtCommit=90; stored=90; overlapStyled=true"
+    },
+    {
+      "id": "AC5",
+      "criterion": "Dragging the handle neither moves nor deselects the furniture, while dragging the furniture body still moves it normally",
+      "pass": true,
+      "detail": "stillSelected=true; posUnchanged=true; bodyMoved=true; body (240,180)→(335.2380952380952,239.52380952380943)"
+    },
+    {
+      "id": "AC6",
+      "criterion": "The handle is hidden/inactive during pan, calibration, and draw modes",
+      "pass": true,
+      "detail": "select=1; pan=0; calibrate=0; draw=0; back=1"
+    },
+    {
+      "id": "AC7",
+      "criterion": "Mouse and touch interactions work, including cleanup when the interaction is cancelled or released",
+      "pass": true,
+      "detail": "touchRotated=true; cancelCleanup=true; hasTouchContext=true"
+    },
+    {
+      "id": "AC8",
+      "criterion": "The handle remains a usable, visually consistent size at minimum and maximum supported zoom",
+      "pass": true,
+      "detail": "screenRadiusMin=5.000; screenRadiusMax=5.000; stageScaleMin=0.29428878454853163; stageScaleMax=3.026971429925818"
+    },
+    {
+      "id": "AC9",
+      "criterion": "Rotation persists after reload through the existing saved session and saved-plan flows",
+      "pass": true,
+      "detail": "before=60; after=60"
+    },
+    {
+      "id": "AC10",
+      "criterion": "Existing Inspector rotation input and ±15° buttons continue to work",
+      "pass": true,
+      "detail": "start=60; after-15=45; after+15=60; typed=30; stored=30"
+    }
+  ],
+  "artifacts": [
+    "01-empty.png",
+    "02-uploaded.png",
+    "03-calibrated.png",
+    "04-furniture-selected.png",
+    "05-handle-visible.png",
+    "06-after-rotate-drag.png",
+    "07-inspector-committed.png",
+    "07b-overlap-styling.png",
+    "08-body-dragged.png",
+    "09-hidden-calibrate.png",
+    "10-hidden-draw.png",
+    "11-touch-and-cancel.png",
+    "12-zoom-min.png",
+    "13-zoom-max.png",
+    "14-before-reload.png",
+    "15-after-reload.png",
+    "16-inspector-controls.png",
+    "17-final.png",
+    "dim-19-e2e-demo.gif",
+    "dim-19-e2e-demo.webm"
+  ]
+}
