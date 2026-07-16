@@ -20,7 +20,7 @@ export type FurnitureItem = {
   rotation: number;
 };
 
-export type DrawElementKind = "wall" | "room" | "line" | "rect";
+export type DrawElementKind = "wall" | "room" | "line" | "rect" | "link";
 
 export type DrawElement = {
   id: string;
@@ -91,11 +91,12 @@ export type ToolMode =
   | "draw-wall"
   | "draw-room"
   | "draw-line"
-  | "draw-rect";
+  | "draw-rect"
+  | "draw-link";
 
 export type DrawToolMode = Extract<
   ToolMode,
-  "draw-wall" | "draw-room" | "draw-line" | "draw-rect"
+  "draw-wall" | "draw-room" | "draw-line" | "draw-rect" | "draw-link"
 >;
 
 export type CalibrationDraft = {
@@ -108,7 +109,8 @@ export function isDrawTool(mode: ToolMode): mode is DrawToolMode {
     mode === "draw-wall" ||
     mode === "draw-room" ||
     mode === "draw-line" ||
-    mode === "draw-rect"
+    mode === "draw-rect" ||
+    mode === "draw-link"
   );
 }
 

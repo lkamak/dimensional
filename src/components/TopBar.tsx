@@ -33,6 +33,7 @@ const DRAW_TOOLS: { mode: ToolMode; label: string }[] = [
   { mode: "draw-room", label: "Room" },
   { mode: "draw-line", label: "Line" },
   { mode: "draw-rect", label: "Rect" },
+  { mode: "draw-link", label: "Link" },
 ];
 
 export function TopBar({
