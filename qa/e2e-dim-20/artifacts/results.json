@@ -1,0 +1,51 @@
+{
+  "commit": "b71abdbf3ae3d956953941cc0db0a44e38c36451",
+  "prd": "DIM-20",
+  "results": [
+    {
+      "id": "AC1",
+      "criterion": "After first Wall click, preview line is visible from origin to mouse",
+      "pass": true,
+      "detail": "preview=(219.6,178.6)→(419.6,178.6) stroke=#3d5a5b opacity=0.65"
+    },
+    {
+      "id": "AC2",
+      "criterion": "Preview endpoint updates on every mousemove across direction changes",
+      "pass": true,
+      "detail": "dirB=true dirC=true preCommit=true ends=[B:(420,359) C:(179,339)]"
+    },
+    {
+      "id": "AC3",
+      "criterion": "Preview uses existing wall styling and consistent on-screen thickness across zoom",
+      "pass": true,
+      "detail": "styleOk=true scale 0.56→0.59 sw 14.29→13.48 screenPx≈8.00"
+    },
+    {
+      "id": "AC4",
+      "criterion": "Second click creates exactly one committed wall and clears preview",
+      "pass": true,
+      "detail": "Δelements=1 committed=true previewCleared=true wall=(220,179)→(478,279)"
+    },
+    {
+      "id": "AC5",
+      "criterion": "Escape or changing tools clears preview without adding/persisting an element",
+      "pass": true,
+      "detail": "escape: had=true cleared=true noAdd=true; tool: had=true cleared=true noAdd=true"
+    },
+    {
+      "id": "AC6",
+      "criterion": "Wall shorter than 4px minimum is not committed",
+      "pass": true,
+      "detail": "elementCount before=1 after=1 (preview leftover cancelled via Escape)"
+    },
+    {
+      "id": "AC7",
+      "criterion": "Shared Line tool preview also follows the cursor continuously",
+      "pass": true,
+      "detail": "trackA=true trackB=true trackC=true committedΔ=1 previewCleared=true"
+    }
+  ],
+  "passed": 7,
+  "failed": 0,
+  "total": 7
+}
