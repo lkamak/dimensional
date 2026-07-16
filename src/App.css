@@ -44,6 +44,38 @@
   white-space: nowrap;
 }
 
+.rotate-control {
+  position: absolute;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elevated);
+  color: var(--selection);
+  box-shadow: var(--shadow-sm);
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.rotate-control:hover {
+  background: var(--selection-soft);
+  border-color: rgba(61, 90, 91, 0.4);
+}
+
+.rotate-control:focus-visible {
+  outline: none;
+  border-color: var(--selection);
+  box-shadow: 0 0 0 3px var(--selection-soft);
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

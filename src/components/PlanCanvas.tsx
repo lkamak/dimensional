@@ -39,6 +39,7 @@ type PlanCanvasProps = {
   onSelect: (id: string | null) => void;
   onElementSelect: (id: string | null) => void;
   onItemChange: (id: string, patch: Partial<FurnitureItem>) => void;
+  onRotate: (id: string, delta: number) => void;
   onElementChange: (id: string, patch: Partial<DrawElement>) => void;
   onElementAdd: (element: DrawElement) => void;
   onCalibrationChange: (draft: CalibrationDraft) => void;
@@ -284,6 +285,7 @@ export function PlanCanvas({
   onSelect,
   onElementSelect,
   onItemChange,
+  onRotate,
   onElementChange,
   onElementAdd,
   onCalibrationChange,
@@ -296,6 +298,11 @@ export function PlanCanvas({
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [spaceDown, setSpaceDown] = useState(false);
+  const [dragItem, setDragItem] = useState<{
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const [drawDraft, setDrawDraft] = useState<{
     kind: DrawElementKind;
     start: { x: number; y: number };
@@ -548,11 +555,19 @@ export function PlanCanvas({
             onSelect(item.id);
             onElementSelect(null);
           }}
+          onDragMove={(e) => {
+            setDragItem({
+              id: item.id,
+              x: e.target.x(),
+              y: e.target.y(),
+            });
+          }}
           onDragEnd={(e) => {
             onItemChange(item.id, {
               x: e.target.x(),
               y: e.target.y(),
             });
+            setDragItem(null);
           }}
         >
           <Rect
@@ -660,8 +675,46 @@ export function PlanCanvas({
       ? "crosshair"
       : "default";
 
+  const selectedItem =
+    toolMode === "select" && !isPanning && pixelsPerInch
+      ? (items.find((i) => i.id === selectedId) ?? null)
+      : null;
+
+  let rotateControlPos: { x: number; y: number } | null = null;
+  if (selectedItem) {
+    const w = selectedItem.widthIn * pixelsPerInch!;
+    const h = selectedItem.depthIn * pixelsPerInch!;
+    const center =
+      dragItem && dragItem.id === selectedItem.id
+        ? { x: dragItem.x, y: dragItem.y }
+        : { x: selectedItem.x, y: selectedItem.y };
+    const rad = (selectedItem.rotation * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    // Top-right corner relative to the item's center pivot (matches Konva offset).
+    const localX = w / 2;
+    const localY = -h / 2;
+    const cornerWorldX = center.x + localX * cos - localY * sin;
+    const cornerWorldY = center.y + localX * sin + localY * cos;
+    // Outward diagonal (screen-space) so the control sits just outside the corner.
+    const outLen = Math.hypot(localX, localY) || 1;
+    const outX = (localX / outLen) * cos - (localY / outLen) * sin;
+    const outY = (localX / outLen) * sin + (localY / outLen) * cos;
+    const offset = 16;
+    const rawX = cornerWorldX * scale + position.x + outX * offset;
+    const rawY = cornerWorldY * scale + position.y + outY * offset;
+    const margin = 22;
+    rotateControlPos = {
+      x: Math.max(margin, Math.min(size.width - margin, rawX)),
+      y: Math.max(margin, Math.min(size.height - margin, rawY)),
+    };
+  }
+
   return (
-    <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
+    <div
+      ref={containerRef}
+      style={{ width: "100%", height: "100%", position: "relative" }}
+    >
       <Stage
         ref={stageRef}
         width={size.width}
@@ -757,6 +810,42 @@ export function PlanCanvas({
           )}
         </Layer>
       </Stage>
+      {selectedItem && rotateControlPos && (
+        <button
+          type="button"
+          className="rotate-control"
+          aria-label="Rotate selected furniture 15 degrees clockwise"
+          title="Rotate 15° clockwise"
+          style={{ left: rotateControlPos.x, top: rotateControlPos.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRotate(selectedItem.id, 15);
+          }}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M20 12a8 8 0 1 1-2.34-5.66"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+            <path
+              d="M20 4v4h-4"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }

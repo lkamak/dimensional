@@ -606,6 +606,7 @@ export default function App() {
                 onSelect={setSelectedId}
                 onElementSelect={setSelectedElementId}
                 onItemChange={handleItemChange}
+                onRotate={handleRotate}
                 onElementChange={handleElementChange}
                 onElementAdd={handleElementAdd}
                 onCalibrationChange={setCalibration}
