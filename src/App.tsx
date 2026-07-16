@@ -32,6 +32,7 @@ import type {
 } from "./types";
 import { hasActivePlan } from "./types";
 import { displayValueToInches, unitLabel } from "./units";
+import { snapRotation } from "./geometry";
 import { vectorizeFloorPlan } from "./vectorize";
 
 type LibraryModalMode =
@@ -48,11 +49,6 @@ type ConversionPreview = {
 
 function createId(): string {
   return crypto.randomUUID();
-}
-
-function snapRotation(deg: number): number {
-  const snapped = Math.round(deg / 15) * 15;
-  return ((snapped % 360) + 360) % 360;
 }
 
 export default function App() {
