@@ -20,6 +20,7 @@ import type {
 } from "../types";
 import { isDrawTool } from "../types";
 import { formatDimensions } from "../units";
+import { dist, normalizeRect, resolveDrawCoords } from "../geometry";
 
 type PlanCanvasProps = {
   imageDataUrl: string | null;
@@ -88,27 +89,6 @@ function boxesOverlap(
     A.bottom < B.top ||
     A.top > B.bottom
   );
-}
-
-function dist(
-  a: { x: number; y: number },
-  b: { x: number; y: number },
-): number {
-  return Math.hypot(b.x - a.x, b.y - a.y);
-}
-
-function normalizeRect(
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-): { x1: number; y1: number; x2: number; y2: number } {
-  return {
-    x1: Math.min(x1, x2),
-    y1: Math.min(y1, y2),
-    x2: Math.max(x1, x2),
-    y2: Math.max(y1, y2),
-  };
 }
 
 function drawKindFromTool(toolMode: ToolMode): DrawElementKind | null {
@@ -383,15 +363,15 @@ export function PlanCanvas({
     start: { x: number; y: number },
     end: { x: number; y: number },
   ) => {
-    if (dist(start, end) < 4) return;
-    const rect = normalizeRect(start.x, start.y, end.x, end.y);
+    const coords = resolveDrawCoords(kind, start, end);
+    if (!coords) return;
     onElementAdd({
       id: crypto.randomUUID(),
       kind,
-      x1: rect.x1,
-      y1: rect.y1,
-      x2: rect.x2,
-      y2: rect.y2,
+      x1: coords.x1,
+      y1: coords.y1,
+      x2: coords.x2,
+      y2: coords.y2,
     });
     setDrawDraft(null);
   };
