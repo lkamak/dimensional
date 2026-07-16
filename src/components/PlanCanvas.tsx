@@ -302,6 +302,8 @@ export function PlanCanvas({
     start: { x: number; y: number };
     end: { x: number; y: number } | null;
   } | null>(null);
+  const drawDraftRef = useRef(drawDraft);
+  drawDraftRef.current = drawDraft;
   const [rotating, setRotating] = useState<{ id: string; angle: number } | null>(
     null,
   );
@@ -405,9 +407,25 @@ export function PlanCanvas({
   const endRotate = useCallback(() => {
     const active = rotatingRef.current;
     if (!active) return;
-    onItemChange(active.id, { rotation: active.angle });
+    rotatingRef.current = null;
+    let angle = active.angle;
+    const stage = stageRef.current;
+    if (stage) {
+      const pointer = stage.getPointerPosition();
+      if (pointer) {
+        const world = {
+          x: (pointer.x - position.x) / scale,
+          y: (pointer.y - position.y) / scale,
+        };
+        const item = items.find((i) => i.id === active.id);
+        if (item) {
+          angle = rotationFromPointer({ x: item.x, y: item.y }, world);
+        }
+      }
+    }
+    onItemChange(active.id, { rotation: angle });
     setRotating(null);
-  }, [onItemChange]);
+  }, [onItemChange, items, position, scale]);
 
   const isRotating = rotating !== null;
 
@@ -437,6 +455,7 @@ export function PlanCanvas({
       x2: rect.x2,
       y2: rect.y2,
     });
+    drawDraftRef.current = null;
     setDrawDraft(null);
   };
 
@@ -535,9 +554,10 @@ export function PlanCanvas({
       endRotate();
       return;
     }
-    if (!drawDraft || isTwoClickDraw || isPanning) return;
-    if (!drawDraft.end) return;
-    commitDrawElement(drawDraft.kind, drawDraft.start, drawDraft.end);
+    const draft = drawDraftRef.current;
+    if (!draft || isTwoClickDraw || isPanning) return;
+    if (!draft.end) return;
+    commitDrawElement(draft.kind, draft.start, draft.end);
   };
 
   const handleStageTouchMove = (e: Konva.KonvaEventObject<TouchEvent>) => {
