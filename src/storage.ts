@@ -39,7 +39,9 @@ function parseElements(raw: unknown): DrawElement[] {
       el != null &&
       typeof el === "object" &&
       typeof (el as DrawElement).id === "string" &&
-      ["wall", "room", "line", "rect"].includes((el as DrawElement).kind) &&
+      ["wall", "room", "line", "rect", "link"].includes(
+        (el as DrawElement).kind,
+      ) &&
       typeof (el as DrawElement).x1 === "number" &&
       typeof (el as DrawElement).y1 === "number" &&
       typeof (el as DrawElement).x2 === "number" &&

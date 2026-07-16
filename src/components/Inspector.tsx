@@ -32,6 +32,12 @@ function elementLabel(kind: DrawElement["kind"]): string {
       return "Line";
     case "rect":
       return "Rectangle";
+    case "link":
+      return "Link";
+    default: {
+      const _exhaustive: never = kind;
+      return _exhaustive;
+    }
   }
 }
 
@@ -48,7 +54,10 @@ export function Inspector({
   if (element && !item) {
     const lengthPx = elementLengthPx(element);
     const lengthIn = pixelsPerInch ? lengthPx / pixelsPerInch : null;
-    const isLineLike = element.kind === "wall" || element.kind === "line";
+    const isLineLike =
+      element.kind === "wall" ||
+      element.kind === "line" ||
+      element.kind === "link";
 
     return (
       <aside className={styles.inspector}>

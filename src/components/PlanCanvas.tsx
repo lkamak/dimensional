@@ -7,6 +7,7 @@ import {
   Rect,
   Text,
   Line,
+  Arrow,
   Circle,
 } from "react-konva";
 import type Konva from "konva";
@@ -116,7 +117,12 @@ function drawKindFromTool(toolMode: ToolMode): DrawElementKind | null {
   if (toolMode === "draw-room") return "room";
   if (toolMode === "draw-line") return "line";
   if (toolMode === "draw-rect") return "rect";
+  if (toolMode === "draw-link") return "link";
   return null;
+}
+
+function isLineLikeKind(kind: DrawElementKind): boolean {
+  return kind === "wall" || kind === "line" || kind === "link";
 }
 
 function renderElementShape(
@@ -168,6 +174,36 @@ function renderElementShape(
         strokeWidth={strokeWidth}
         dash={[6 / scale, 4 / scale]}
         hitStrokeWidth={12 / scale}
+        draggable={draggable}
+        listening={listening}
+        onClick={(e) => {
+          e.cancelBubble = true;
+          onSelect();
+        }}
+        onTap={(e) => {
+          e.cancelBubble = true;
+          onSelect();
+        }}
+        onDragEnd={(e) => {
+          const node = e.target;
+          onDragEnd(node.x(), node.y());
+          node.position({ x: 0, y: 0 });
+        }}
+      />
+    );
+  }
+
+  if (el.kind === "link") {
+    return (
+      <Arrow
+        key={el.id}
+        points={[el.x1, el.y1, el.x2, el.y2]}
+        stroke={stroke}
+        fill={stroke}
+        strokeWidth={(selected ? 2.5 : 1.5) / scale}
+        pointerLength={10 / scale}
+        pointerWidth={8 / scale}
+        hitStrokeWidth={14 / scale}
         draggable={draggable}
         listening={listening}
         onClick={(e) => {
@@ -244,6 +280,20 @@ function renderDraftPreview(
         stroke="#3d5a5b"
         strokeWidth={2 / scale}
         dash={[6 / scale, 4 / scale]}
+        opacity={0.65}
+        listening={false}
+      />
+    );
+  }
+  if (kind === "link") {
+    return (
+      <Arrow
+        points={[start.x, start.y, end.x, end.y]}
+        stroke="#3d5a5b"
+        fill="#3d5a5b"
+        strokeWidth={1.5 / scale}
+        pointerLength={10 / scale}
+        pointerWidth={8 / scale}
         opacity={0.65}
         listening={false}
       />
@@ -367,7 +417,7 @@ export function PlanCanvas({
   const isPanning = toolMode === "pan" || spaceDown;
   const isCalibrating = toolMode === "calibrate";
   const drawKind = drawKindFromTool(toolMode);
-  const isTwoClickDraw = drawKind === "wall" || drawKind === "line";
+  const isTwoClickDraw = drawKind != null && isLineLikeKind(drawKind);
 
   const pointerWorld = (stage: Konva.Stage) => {
     const pointer = stage.getPointerPosition();
@@ -384,14 +434,16 @@ export function PlanCanvas({
     end: { x: number; y: number },
   ) => {
     if (dist(start, end) < 4) return;
-    const rect = normalizeRect(start.x, start.y, end.x, end.y);
+    const bounds = isLineLikeKind(kind)
+      ? { x1: start.x, y1: start.y, x2: end.x, y2: end.y }
+      : normalizeRect(start.x, start.y, end.x, end.y);
     onElementAdd({
       id: crypto.randomUUID(),
       kind,
-      x1: rect.x1,
-      y1: rect.y1,
-      x2: rect.x2,
-      y2: rect.y2,
+      x1: bounds.x1,
+      y1: bounds.y1,
+      x2: bounds.x2,
+      y2: bounds.y2,
     });
     setDrawDraft(null);
   };

@@ -619,7 +619,9 @@ export default function App() {
               )}
               {toolMode.startsWith("draw-") && (
                 <div className="overlay-hint">
-                  {toolMode === "draw-wall" || toolMode === "draw-line"
+                  {toolMode === "draw-wall" ||
+                  toolMode === "draw-line" ||
+                  toolMode === "draw-link"
                     ? "Click two points to draw · Esc to cancel"
                     : "Click and drag to draw · Esc to cancel"}
                 </div>
