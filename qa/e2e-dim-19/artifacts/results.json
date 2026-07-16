@@ -1,0 +1,95 @@
+{
+  "pr": "https://github.com/lkamak/dimensional/pull/15",
+  "jira": "https://3p-agents.atlassian.net/browse/DIM-19",
+  "commit": "c784d6b57f089217b9f9ea5a444a441afcd02f00",
+  "changeType": "frontend-only",
+  "passed": 10,
+  "failed": 0,
+  "verdict": "APPROVE",
+  "results": [
+    {
+      "id": "AC1",
+      "criterion": "Selecting furniture in Select mode displays a small rotation handle adjacent to the item.",
+      "pass": true,
+      "detail": "handles=1, screen=(485.6, 252.6), radiusWorld=5.9523809523809526"
+    },
+    {
+      "id": "AC2",
+      "criterion": "Dragging the handle rotates the furniture smoothly around its center and previews the result during the drag.",
+      "pass": true,
+      "detail": "midGroupRot=90, midStored=0, posDelta=(0.00, 0.00)"
+    },
+    {
+      "id": "AC3",
+      "criterion": "The resulting angle snaps to 15° increments and remains normalized to 0–359°.",
+      "pass": true,
+      "detail": "rotation=90"
+    },
+    {
+      "id": "AC4",
+      "criterion": "Releasing the handle commits the final rotation; the Inspector value and rotation-aware overlap styling reflect the new angle.",
+      "pass": true,
+      "detail": "inspector=90, stored=90, overlapRects=2"
+    },
+    {
+      "id": "AC5",
+      "criterion": "Dragging the handle neither moves nor deselects the furniture, while dragging the furniture body still moves it normally.",
+      "pass": true,
+      "detail": "handleNoMove=true, stillSelected=true, label=Sofa, bodyMoved=true, dPos=103.5"
+    },
+    {
+      "id": "AC6",
+      "criterion": "The handle is hidden/inactive during pan, calibration, and draw modes.",
+      "pass": true,
+      "detail": "select=1, spacePan=0, calib=0, draw=0"
+    },
+    {
+      "id": "AC7",
+      "criterion": "Mouse and touch interactions work, including cleanup when the interaction is cancelled or released.",
+      "pass": true,
+      "detail": "touchOk=true, cancelOk=true, rotation=180"
+    },
+    {
+      "id": "AC8",
+      "criterion": "The handle remains a usable, visually consistent size at minimum and maximum supported zoom.",
+      "pass": true,
+      "detail": "screenR mid/min/max=5.00/5.00/5.00 (target≈5)"
+    },
+    {
+      "id": "AC9",
+      "criterion": "Rotation persists after reload through the existing saved session and saved-plan flows.",
+      "pass": true,
+      "detail": "beforeReload=180, afterReload=180"
+    },
+    {
+      "id": "AC10",
+      "criterion": "Existing Inspector rotation input and ±15° buttons continue to work.",
+      "pass": true,
+      "detail": "before=180, +15→195, -15→180, input45=45"
+    }
+  ],
+  "artifacts": [
+    "01-empty.png",
+    "02-uploaded.png",
+    "03-calibrated.png",
+    "04-furniture-selected.png",
+    "05-handle-visible.png",
+    "06-drag-preview.png",
+    "07-after-release.png",
+    "08-overlap-after-rotation.png",
+    "09-after-handle-drag-no-move.png",
+    "10-after-body-drag.png",
+    "11-space-pan-no-handle.png",
+    "12-calibrate-mode-no-handle.png",
+    "13-draw-mode-no-handle.png",
+    "14-touch-and-cancel.png",
+    "15-zoom-min.png",
+    "16-zoom-max.png",
+    "17-after-reload.png",
+    "18-inspector-controls.png",
+    "19-final.png",
+    "dim-19-e2e-demo.gif",
+    "dim-19-e2e-demo.webm",
+    "dim-19-e2e-preview.gif"
+  ]
+}
