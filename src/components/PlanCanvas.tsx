@@ -90,14 +90,14 @@ function boxesOverlap(
   );
 }
 
-function dist(
+export function dist(
   a: { x: number; y: number },
   b: { x: number; y: number },
 ): number {
   return Math.hypot(b.x - a.x, b.y - a.y);
 }
 
-function normalizeRect(
+export function normalizeRect(
   x1: number,
   y1: number,
   x2: number,
@@ -109,6 +109,18 @@ function normalizeRect(
     x2: Math.max(x1, x2),
     y2: Math.max(y1, y2),
   };
+}
+
+export function resolveDrawCoords(
+  kind: DrawElementKind,
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+): { x1: number; y1: number; x2: number; y2: number } | null {
+  if (dist(start, end) < 4) return null;
+  const isLineLike = kind === "wall" || kind === "line";
+  return isLineLike
+    ? { x1: start.x, y1: start.y, x2: end.x, y2: end.y }
+    : normalizeRect(start.x, start.y, end.x, end.y);
 }
 
 function drawKindFromTool(toolMode: ToolMode): DrawElementKind | null {
@@ -383,11 +395,8 @@ export function PlanCanvas({
     start: { x: number; y: number },
     end: { x: number; y: number },
   ) => {
-    if (dist(start, end) < 4) return;
-    const isLineLike = kind === "wall" || kind === "line";
-    const coords = isLineLike
-      ? { x1: start.x, y1: start.y, x2: end.x, y2: end.y }
-      : normalizeRect(start.x, start.y, end.x, end.y);
+    const coords = resolveDrawCoords(kind, start, end);
+    if (!coords) return;
     onElementAdd({
       id: crypto.randomUUID(),
       kind,
