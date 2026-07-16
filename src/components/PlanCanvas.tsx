@@ -477,7 +477,7 @@ export function PlanCanvas({
       return;
     }
 
-    if (drawDraft && (!isTwoClickDraw || drawDraft.end == null)) {
+    if (drawDraft) {
       setDrawDraft({ ...drawDraft, end: world });
     }
   };
