@@ -19,6 +19,7 @@ import type {
   UnitSystem,
 } from "../types";
 import { isDrawTool } from "../types";
+import { rotationFromPointer } from "../geometry";
 import { formatDimensions } from "../units";
 
 type PlanCanvasProps = {
@@ -296,6 +297,9 @@ export function PlanCanvas({
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [spaceDown, setSpaceDown] = useState(false);
+  const [rotatingId, setRotatingId] = useState<string | null>(null);
+  const [previewRotation, setPreviewRotation] = useState<number | null>(null);
+  const previewRotationRef = useRef<number | null>(null);
   const [drawDraft, setDrawDraft] = useState<{
     kind: DrawElementKind;
     start: { x: number; y: number };
@@ -363,6 +367,56 @@ export function PlanCanvas({
   useEffect(() => {
     setDrawDraft(null);
   }, [toolMode]);
+
+  useEffect(() => {
+    if (!rotatingId) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const item = items.find((i) => i.id === rotatingId);
+    if (!item) {
+      setRotatingId(null);
+      setPreviewRotation(null);
+      previewRotationRef.current = null;
+      return;
+    }
+
+    const clientToWorld = (clientX: number, clientY: number) => {
+      const rect = container.getBoundingClientRect();
+      return {
+        x: (clientX - rect.left - position.x) / scale,
+        y: (clientY - rect.top - position.y) / scale,
+      };
+    };
+
+    const handleMove = (e: PointerEvent) => {
+      e.preventDefault();
+      const next = rotationFromPointer(
+        { x: item.x, y: item.y },
+        clientToWorld(e.clientX, e.clientY),
+      );
+      previewRotationRef.current = next;
+      setPreviewRotation(next);
+    };
+
+    const endRotation = () => {
+      const final = previewRotationRef.current;
+      if (final != null && final !== item.rotation) {
+        onItemChange(item.id, { rotation: final });
+      }
+      setRotatingId(null);
+      setPreviewRotation(null);
+      previewRotationRef.current = null;
+    };
+
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", endRotation);
+    window.addEventListener("pointercancel", endRotation);
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", endRotation);
+      window.removeEventListener("pointercancel", endRotation);
+    };
+  }, [rotatingId, items, position.x, position.y, scale, onItemChange]);
 
   const isPanning = toolMode === "pan" || spaceDown;
   const isCalibrating = toolMode === "calibrate";
@@ -529,15 +583,23 @@ export function PlanCanvas({
     return sized.map(({ item, w, h }) => {
       const selected = item.id === selectedId;
       const overlaps = overlapping.has(item.id);
+      const isRotating = item.id === rotatingId;
+      const rotation =
+        isRotating && previewRotation != null ? previewRotation : item.rotation;
+      const showRotateHandle =
+        selected && toolMode === "select" && !isPanning;
+      const rotateGap = 26 / scale;
       return (
         <Group
           key={item.id}
           x={item.x}
           y={item.y}
-          rotation={item.rotation}
+          rotation={rotation}
           offsetX={w / 2}
           offsetY={h / 2}
-          draggable={!isCalibrating && !isPanning && !isDrawTool(toolMode)}
+          draggable={
+            !isCalibrating && !isPanning && !isDrawTool(toolMode) && !isRotating
+          }
           onClick={(e) => {
             e.cancelBubble = true;
             onSelect(item.id);
@@ -598,6 +660,54 @@ export function PlanCanvas({
               listening={false}
             />
           )}
+          {showRotateHandle && (
+            <>
+              <Line
+                points={[w / 2, 0, w / 2, -rotateGap]}
+                stroke="#3d5a5b"
+                strokeWidth={1.5 / scale}
+                listening={false}
+              />
+              <Circle
+                x={w / 2}
+                y={-rotateGap}
+                radius={5 / scale}
+                fill="#ffffff"
+                stroke="#3d5a5b"
+                strokeWidth={2 / scale}
+                hitStrokeWidth={22 / scale}
+                onMouseDown={(e) => {
+                  e.cancelBubble = true;
+                  e.evt.preventDefault();
+                  previewRotationRef.current = item.rotation;
+                  setPreviewRotation(item.rotation);
+                  setRotatingId(item.id);
+                }}
+                onTouchStart={(e) => {
+                  e.cancelBubble = true;
+                  e.evt.preventDefault();
+                  previewRotationRef.current = item.rotation;
+                  setPreviewRotation(item.rotation);
+                  setRotatingId(item.id);
+                }}
+                onClick={(e) => {
+                  e.cancelBubble = true;
+                }}
+                onTap={(e) => {
+                  e.cancelBubble = true;
+                }}
+                onMouseEnter={(e) => {
+                  const stage = e.target.getStage();
+                  if (stage) stage.container().style.cursor = "grab";
+                }}
+                onMouseLeave={(e) => {
+                  const stage = e.target.getStage();
+                  if (stage && !rotatingId)
+                    stage.container().style.cursor = "default";
+                }}
+              />
+            </>
+          )}
         </Group>
       );
     });
@@ -613,6 +723,8 @@ export function PlanCanvas({
     onItemChange,
     scale,
     unitSystem,
+    rotatingId,
+    previewRotation,
   ]);
 
   const elementNodes = useMemo(
@@ -654,11 +766,13 @@ export function PlanCanvas({
     ],
   );
 
-  const cursor = isPanning
-    ? "grab"
-    : isCalibrating || drawKind
-      ? "crosshair"
-      : "default";
+  const cursor = rotatingId
+    ? "grabbing"
+    : isPanning
+      ? "grab"
+      : isCalibrating || drawKind
+        ? "crosshair"
+        : "default";
 
   return (
     <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
