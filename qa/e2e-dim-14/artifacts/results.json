@@ -1,0 +1,53 @@
+{
+  "prd": "DIM-14",
+  "pr": 16,
+  "commit": "5001153a5170ddbd03aa0afaf4152a8bb3c1885c",
+  "passed": 7,
+  "failed": 0,
+  "verdict": "APPROVE",
+  "results": [
+    {
+      "id": "AC1",
+      "criterion": "With imperial units selected, the calibration modal labels the field Length (ft).",
+      "pass": true,
+      "detail": "label=\"Length (ft)\""
+    },
+    {
+      "id": "AC2",
+      "criterion": "The imperial placeholder/example communicates that entering 10 represents a 10-foot wall.",
+      "pass": true,
+      "detail": "placeholder=\"e.g. 10 for 10 ft wall\""
+    },
+    {
+      "id": "AC3",
+      "criterion": "Entering 10 for a 120-pixel calibration line sets the scale to 1 pixel per inch (equivalent to 12 pixels per foot).",
+      "pass": true,
+      "detail": "pixelsPerInch=1.001984126984127, scaleUI=\"Scale set · 1 in = 1.0 px\""
+    },
+    {
+      "id": "AC4",
+      "criterion": "Positive decimal feet values such as 10.5 are accepted and converted correctly.",
+      "pass": true,
+      "detail": "10.5 ft on 126px line => pixelsPerInch=1.0015117157974303 (expect ~1.0)"
+    },
+    {
+      "id": "AC5",
+      "criterion": "Invalid, zero, and negative values remain rejected.",
+      "pass": true,
+      "detail": "modalStay={zero:true,neg:true,empty:true,invalid:true}, ppiUnchanged=1.0015117157974303"
+    },
+    {
+      "id": "AC6",
+      "criterion": "Metric calibration remains unchanged and continues to accept centimeters.",
+      "pass": true,
+      "detail": "label=\"Length (cm)\", placeholder=\"e.g. 300 for 3 m wall\", unit=metric, ppi=1.001984126984127"
+    },
+    {
+      "id": "AC7",
+      "criterion": "Furniture inspector values and existing saved-plan scale data remain inch-based and are not reinterpreted.",
+      "pass": true,
+      "detail": "preservedPpi=2.5 (seeded 2.5), widthLabel=\"WIDTH (IN)\", depthLabel=\"DEPTH (IN)\", widthInput=84, sofa.widthIn=84"
+    }
+  ],
+  "generatedAt": "2026-07-16T20:10:53.970Z"
+}
