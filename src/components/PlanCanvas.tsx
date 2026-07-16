@@ -20,6 +20,7 @@ import type {
 } from "../types";
 import { isDrawTool } from "../types";
 import { formatDimensions } from "../units";
+import { dist, normalizeRect, resolveDrawCoords } from "../geometry";
 
 type PlanCanvasProps = {
   imageDataUrl: string | null;
@@ -88,39 +89,6 @@ function boxesOverlap(
     A.bottom < B.top ||
     A.top > B.bottom
   );
-}
-
-export function dist(
-  a: { x: number; y: number },
-  b: { x: number; y: number },
-): number {
-  return Math.hypot(b.x - a.x, b.y - a.y);
-}
-
-export function normalizeRect(
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-): { x1: number; y1: number; x2: number; y2: number } {
-  return {
-    x1: Math.min(x1, x2),
-    y1: Math.min(y1, y2),
-    x2: Math.max(x1, x2),
-    y2: Math.max(y1, y2),
-  };
-}
-
-export function resolveDrawCoords(
-  kind: DrawElementKind,
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-): { x1: number; y1: number; x2: number; y2: number } | null {
-  if (dist(start, end) < 4) return null;
-  const isLineLike = kind === "wall" || kind === "line";
-  return isLineLike
-    ? { x1: start.x, y1: start.y, x2: end.x, y2: end.y }
-    : normalizeRect(start.x, start.y, end.x, end.y);
 }
 
 function drawKindFromTool(toolMode: ToolMode): DrawElementKind | null {

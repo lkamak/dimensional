@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveDrawCoords, normalizeRect, dist } from "./PlanCanvas";
+import { resolveDrawCoords, normalizeRect, dist } from "./geometry";
 
 describe("resolveDrawCoords - line-like kinds preserve raw endpoints", () => {
   it("wall retains negative-slope endpoint order", () => {
