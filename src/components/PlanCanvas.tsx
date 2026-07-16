@@ -384,14 +384,14 @@ export function PlanCanvas({
     end: { x: number; y: number },
   ) => {
     if (dist(start, end) < 4) return;
-    const rect = normalizeRect(start.x, start.y, end.x, end.y);
+    const coordinates =
+      kind === "wall" || kind === "line"
+        ? { x1: start.x, y1: start.y, x2: end.x, y2: end.y }
+        : normalizeRect(start.x, start.y, end.x, end.y);
     onElementAdd({
       id: crypto.randomUUID(),
       kind,
-      x1: rect.x1,
-      y1: rect.y1,
-      x2: rect.x2,
-      y2: rect.y2,
+      ...coordinates,
     });
     setDrawDraft(null);
   };
