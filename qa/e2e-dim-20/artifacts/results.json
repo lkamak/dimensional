@@ -1,0 +1,52 @@
+{
+  "commit": "c3ea9b286e304e4067940940a9bf16ef4ff4067f",
+  "prd": "DIM-20",
+  "pr": 14,
+  "results": [
+    {
+      "id": "AC1",
+      "criterion": "After first Wall click, preview line visible from origin to mouse",
+      "pass": true,
+      "detail": "draft={\"kind\":\"wall\",\"start\":{\"x\":278.57142857142867,\"y\":219.64285714285717},\"end\":{\"x\":469.6428571428572,\"y\":219.64285714285717}} previewStroke=#3d5a5b cap=square sw=14.29"
+    },
+    {
+      "id": "AC2",
+      "criterion": "Preview endpoint updates on every mousemove across direction changes",
+      "pass": true,
+      "detail": "nearTarget=true movedEnough=true moveDists=266,228,320 persistedElements=0 ends=[{\"x\":478.5714285714286,\"y\":369.64285714285717},{\"x\":214.28571428571436,\"y\":398.2142857142857},{\"x\":180.35714285714295,\"y\":173.21428571428575},{\"x\":500.00000000000006,\"y\":158.92857142857147}]"
+    },
+    {
+      "id": "AC3",
+      "criterion": "Preview uses wall styling and consistent on-screen thickness across zoom",
+      "pass": true,
+      "detail": "scales=0.56→0.79→0.44 sw=14.29/10.07/18.04 screenPx≈8.00"
+    },
+    {
+      "id": "AC4",
+      "criterion": "Second click creates exactly one committed wall and clears preview",
+      "pass": true,
+      "detail": "walls=1 draft=null preview=false wall=(278.6,219.6)→(519.4,338.3)"
+    },
+    {
+      "id": "AC5",
+      "criterion": "Escape or tool change clears preview without adding/persisting element",
+      "pass": true,
+      "detail": "escapeOk=true (hadDraft=true selectActive=true previewAfterEsc=false) toolSwitchOk=true (previewAfterTool=false) counts=1/1/1"
+    },
+    {
+      "id": "AC6",
+      "criterion": "Wall shorter than 4px minimum is not committed",
+      "pass": true,
+      "detail": "elementCount before=1 after=1 draftStillActive=true"
+    },
+    {
+      "id": "AC7",
+      "criterion": "Shared Line tool preview also follows the cursor continuously",
+      "pass": true,
+      "detail": "near=true movedEnough=true moveDists=117,245,149 styleOk=true notPersisted=true lines=1 ends=[{\"x\":386.41935570992075,\"y\":498.37071537985537},{\"x\":417.9812797099208,\"y\":611.0918725227125},{\"x\":174.50358028134931,\"y\":638.1449502369982},{\"x\":176.75800342420646,\"y\":489.3530228084268}]"
+    }
+  ],
+  "passed": 7,
+  "failed": 0,
+  "consoleErrors": []
+}
