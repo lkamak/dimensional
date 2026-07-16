@@ -1,0 +1,60 @@
+{
+  "commit": "90489e20ce5ce4495d9a32b7e18533c69319e1c0",
+  "prd": "DIM-18",
+  "prdUrl": "https://3p-agents.atlassian.net/browse/DIM-18",
+  "changeType": "frontend-only",
+  "passed": true,
+  "results": [
+    {
+      "id": "AC1",
+      "criterion": "Dotted grid clearly more visible than 0.06 while remaining visually secondary",
+      "pass": true,
+      "detail": "computedAlpha=0.11; sourceAlpha=0.11; targetBand=0.10–0.12"
+    },
+    {
+      "id": "AC2",
+      "criterion": "Dot size, 20px spacing, alignment, and neutral color family unchanged",
+      "pass": true,
+      "detail": "{\"dotPx\":1,\"spacing\":[20,20],\"at\":[1,1],\"rgb\":[42,41,36],\"spacingPreserved\":true}"
+    },
+    {
+      "id": "AC3",
+      "criterion": "Grid fills full .canvas-area at different viewport sizes without seams/clipping",
+      "pass": true,
+      "detail": "desktop=960x848; mid=544x576; mobile=240x736; alphaStable=true"
+    },
+    {
+      "id": "AC4",
+      "criterion": "Uploaded images and opaque blank-plan retain rendering; no grid composited over content",
+      "pass": true,
+      "detail": "uploaded=true; hasImage={\"has\":false,\"keys\":[\"plan\",\"activePlanId\",\"activePlanName\",\"baselineState\"]}; blankCanvas={\"canvasOpacity\":\"1\",\"canvasPointerEvents\":\"auto\",\"areaBg\":\"radial-gradient(circle at 1px 1px, rgba(42, 41, 36, 0.11) 1px, rgba(0, 0, 0, 0) 0px), none\",\"canvasW\":960,\"canvasH\":776}; diffFiles=[\"src/App.css\"]"
+    },
+    {
+      "id": "AC5",
+      "criterion": "Panning, zooming, selection, drawing, calibration, furniture interaction behave as before",
+      "pass": true,
+      "detail": "pan={\"beforePan\":{\"x\":63.99999999999994,\"y\":47.99999999999997,\"scale\":0.56},\"afterPan\":{\"x\":143.99999999999994,\"y\":97.99999999999997,\"scale\":0.56},\"panWorked\":true}; zoom={\"beforeZoom\":{\"x\":143.99999999999994,\"y\":97.99999999999997,\"scale\":0.56},\"afterZoom\":{\"x\":102.47039999999987,\"y\":62.15599999999995,\"scale\":0.6292160000000002},\"zoomWorked\":true}; wall=true; calibrate=true; hint=true"
+    },
+    {
+      "id": "AC6",
+      "criterion": "Empty-state card and overlay hints remain legible against the stronger grid",
+      "pass": true,
+      "detail": "emptyLegible=true; calibrateHint=true; alpha=0.11"
+    }
+  ],
+  "artifacts": [
+    "01-empty-desktop.png",
+    "01b-empty-canvas-grid.png",
+    "02-blank-plan.png",
+    "03-wall-drawn.png",
+    "04-after-pan.png",
+    "05-after-zoom.png",
+    "06-uploaded-plan.png",
+    "07-calibrate-hint.png",
+    "08-viewport-1024.png",
+    "09-viewport-mobile.png",
+    "10-final-desktop.png",
+    "dim-18-e2e-demo.gif",
+    "dim-18-e2e-demo.webm"
+  ]
+}
