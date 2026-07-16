@@ -31,7 +31,7 @@ import type {
   UnitSystem,
 } from "./types";
 import { hasActivePlan } from "./types";
-import { displayValueToInches, unitLabel } from "./units";
+import { displayValueToInches, INCHES_PER_FOOT } from "./units";
 import { vectorizeFloorPlan } from "./vectorize";
 
 type LibraryModalMode =
@@ -420,7 +420,10 @@ export default function App() {
     if (pendingLinePx == null) return;
     const value = Number(calibInput);
     if (!Number.isFinite(value) || value <= 0) return;
-    const lengthInches = displayValueToInches(value, plan.unitSystem);
+    const lengthInches =
+      plan.unitSystem === "metric"
+        ? displayValueToInches(value, plan.unitSystem)
+        : value * INCHES_PER_FOOT;
     const pixelsPerInch = pendingLinePx / lengthInches;
     setPlan((prev) => ({ ...prev, pixelsPerInch }));
     setPendingLinePx(null);
@@ -655,7 +658,7 @@ export default function App() {
             </p>
             <div className="modal-field">
               <label htmlFor="calib-length">
-                Length ({unitLabel(plan.unitSystem)})
+                Length ({plan.unitSystem === "metric" ? "cm" : "ft"})
               </label>
               <input
                 id="calib-length"
@@ -667,7 +670,7 @@ export default function App() {
                 placeholder={
                   plan.unitSystem === "metric"
                     ? "e.g. 300 for 3 m wall"
-                    : "e.g. 120 for 10 ft wall"
+                    : "e.g. 10 for 10 ft wall"
                 }
                 onChange={(e) => setCalibInput(e.target.value)}
                 onKeyDown={(e) => {
