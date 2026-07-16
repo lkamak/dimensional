@@ -1,0 +1,57 @@
+{
+  "issue": "DIM-17",
+  "pr": 12,
+  "commit": "fc01619ee84ca9e65a2bbb653b6dfc9bc16e01ab",
+  "verdict": "APPROVE",
+  "results": [
+    {
+      "id": "AC1",
+      "criterion": "Negative-slope wall matches draft (upper-right → lower-left)",
+      "pass": true,
+      "detail": "stored=(419.6,119.6)→(178.6,319.6) slope=-0.830"
+    },
+    {
+      "id": "AC2",
+      "criterion": "Negative-slope line matches draft",
+      "pass": true,
+      "detail": "stored=(500.0,139.3)→(258.9,358.9)"
+    },
+    {
+      "id": "AC3",
+      "criterion": "Positive-slope, horizontal, and vertical walls/lines render correctly",
+      "pass": true,
+      "detail": "posWall=true horizWall=true vertWall=true posLine=true horizLine=true vertLine=true"
+    },
+    {
+      "id": "AC4",
+      "criterion": "Rooms and rectangles normalize from any drag direction",
+      "pass": true,
+      "detail": "room=(250,379)-(450,520) rect=(639,429)-(820,559)"
+    },
+    {
+      "id": "AC5",
+      "criterion": "Selecting and dragging corrected wall preserves angle and length",
+      "pass": true,
+      "detail": "moved=true Δlen=0.00 Δang=0.0000 stillNeg=true"
+    },
+    {
+      "id": "AC6",
+      "criterion": "Negative-slope orientation survives reload and save/load",
+      "pass": true,
+      "detail": "reloadOk=true openOk=true"
+    },
+    {
+      "id": "AC7",
+      "criterion": "Segments shorter than 4 px threshold are rejected",
+      "pass": true,
+      "detail": "elementCount before=10 after=10"
+    },
+    {
+      "id": "AC8",
+      "criterion": "Vectorized/converted walls and legacy plans load without errors",
+      "pass": true,
+      "detail": "hasVec=true hasLegacyNeg=true elements=1 consoleErrors=0"
+    }
+  ],
+  "generatedAt": "2026-07-16T18:29:15.759Z"
+}
