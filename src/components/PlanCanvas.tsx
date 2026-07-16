@@ -300,6 +300,9 @@ export function PlanCanvas({
   const [rotatingId, setRotatingId] = useState<string | null>(null);
   const [previewRotation, setPreviewRotation] = useState<number | null>(null);
   const previewRotationRef = useRef<number | null>(null);
+  const rotatingItemRef = useRef<FurnitureItem | null>(null);
+  const endRotationRef = useRef<() => void>(() => {});
+  const startRotationRef = useRef<(item: FurnitureItem) => void>(() => {});
   const [drawDraft, setDrawDraft] = useState<{
     kind: DrawElementKind;
     start: { x: number; y: number };
@@ -368,17 +371,44 @@ export function PlanCanvas({
     setDrawDraft(null);
   }, [toolMode]);
 
+  endRotationRef.current = () => {
+    const rotatingItem = rotatingItemRef.current;
+    if (!rotatingItem) return;
+    const final = previewRotationRef.current;
+    if (final != null && final !== rotatingItem.rotation) {
+      onItemChange(rotatingItem.id, { rotation: final });
+    }
+    rotatingItemRef.current = null;
+    setRotatingId(null);
+    setPreviewRotation(null);
+    previewRotationRef.current = null;
+  };
+
+  startRotationRef.current = (item: FurnitureItem) => {
+    rotatingItemRef.current = item;
+    previewRotationRef.current = item.rotation;
+    setPreviewRotation(item.rotation);
+    setRotatingId(item.id);
+
+    const onPointerEnd = () => {
+      window.removeEventListener("pointerup", onPointerEnd, true);
+      window.removeEventListener("pointercancel", onPointerEnd, true);
+      endRotationRef.current();
+    };
+    window.addEventListener("pointerup", onPointerEnd, true);
+    window.addEventListener("pointercancel", onPointerEnd, true);
+  };
+
   useEffect(() => {
     if (!rotatingId) return;
     const container = containerRef.current;
     if (!container) return;
     const item = items.find((i) => i.id === rotatingId);
     if (!item) {
-      setRotatingId(null);
-      setPreviewRotation(null);
-      previewRotationRef.current = null;
+      endRotationRef.current();
       return;
     }
+    rotatingItemRef.current = item;
 
     const clientToWorld = (clientX: number, clientY: number) => {
       const rect = container.getBoundingClientRect();
@@ -398,25 +428,11 @@ export function PlanCanvas({
       setPreviewRotation(next);
     };
 
-    const endRotation = () => {
-      const final = previewRotationRef.current;
-      if (final != null && final !== item.rotation) {
-        onItemChange(item.id, { rotation: final });
-      }
-      setRotatingId(null);
-      setPreviewRotation(null);
-      previewRotationRef.current = null;
-    };
-
     window.addEventListener("pointermove", handleMove);
-    window.addEventListener("pointerup", endRotation);
-    window.addEventListener("pointercancel", endRotation);
     return () => {
       window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerup", endRotation);
-      window.removeEventListener("pointercancel", endRotation);
     };
-  }, [rotatingId, items, position.x, position.y, scale, onItemChange]);
+  }, [rotatingId, items, position.x, position.y, scale]);
 
   const isPanning = toolMode === "pan" || spaceDown;
   const isCalibrating = toolMode === "calibrate";
@@ -679,16 +695,12 @@ export function PlanCanvas({
                 onMouseDown={(e) => {
                   e.cancelBubble = true;
                   e.evt.preventDefault();
-                  previewRotationRef.current = item.rotation;
-                  setPreviewRotation(item.rotation);
-                  setRotatingId(item.id);
+                  startRotationRef.current(item);
                 }}
                 onTouchStart={(e) => {
                   e.cancelBubble = true;
                   e.evt.preventDefault();
-                  previewRotationRef.current = item.rotation;
-                  setPreviewRotation(item.rotation);
-                  setRotatingId(item.id);
+                  startRotationRef.current(item);
                 }}
                 onClick={(e) => {
                   e.cancelBubble = true;
