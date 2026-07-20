@@ -18,7 +18,7 @@
   min-width: 0;
   min-height: 0;
   background:
-    radial-gradient(circle at 1px 1px, rgba(42, 41, 36, 0.06) 1px, transparent 0)
+    radial-gradient(circle at 1px 1px, rgba(42, 41, 36, 0.11) 1px, transparent 0)
       0 0 / 20px 20px,
     var(--bg);
 }
