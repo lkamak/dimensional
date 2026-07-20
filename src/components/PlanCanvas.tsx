@@ -301,6 +301,7 @@ export function PlanCanvas({
     start: { x: number; y: number };
     end: { x: number; y: number } | null;
   } | null>(null);
+  const drawCommitPendingRef = useRef(false);
   const image = useHtmlImage(imageDataUrl);
   const fittedRef = useRef<string | null>(null);
 
@@ -362,6 +363,7 @@ export function PlanCanvas({
 
   useEffect(() => {
     setDrawDraft(null);
+    drawCommitPendingRef.current = false;
   }, [toolMode]);
 
   const isPanning = toolMode === "pan" || spaceDown;
@@ -384,6 +386,7 @@ export function PlanCanvas({
     end: { x: number; y: number },
   ) => {
     if (dist(start, end) < 4) return;
+    drawCommitPendingRef.current = true;
     const rect = normalizeRect(start.x, start.y, end.x, end.y);
     onElementAdd({
       id: crypto.randomUUID(),
@@ -445,6 +448,7 @@ export function PlanCanvas({
     if (drawKind) {
       if (isTwoClickDraw) {
         if (!drawDraft) {
+          drawCommitPendingRef.current = false;
           setDrawDraft({ kind: drawKind, start: world, end: null });
         } else {
           commitDrawElement(drawKind, drawDraft.start, world);
@@ -452,6 +456,7 @@ export function PlanCanvas({
         return;
       }
 
+      drawCommitPendingRef.current = false;
       setDrawDraft({ kind: drawKind, start: world, end: world });
       return;
     }
@@ -477,7 +482,7 @@ export function PlanCanvas({
       return;
     }
 
-    if (drawDraft && (!isTwoClickDraw || drawDraft.end == null)) {
+    if (drawDraft && !drawCommitPendingRef.current) {
       setDrawDraft({ ...drawDraft, end: world });
     }
   };
