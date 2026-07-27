@@ -453,8 +453,10 @@ export function PlanCanvas({
     [],
   );
 
+  const rotatingItemId = rotationPreview?.itemId ?? null;
+
   useEffect(() => {
-    if (!rotationPreview) return;
+    if (!rotatingItemId) return;
 
     const handlePointerMove = (event: PointerEvent) => {
       const stage = stageRef.current;
@@ -475,7 +477,7 @@ export function PlanCanvas({
       window.removeEventListener("pointercancel", handlePointerCancel);
       window.removeEventListener("blur", handlePointerCancel);
     };
-  }, [rotationPreview?.itemId, updateRotationPreview, finishRotation]);
+  }, [rotatingItemId, updateRotationPreview, finishRotation]);
 
   useEffect(() => {
     const activeItemId = rotationInteractionRef.current?.itemId;
