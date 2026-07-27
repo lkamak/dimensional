@@ -221,14 +221,6 @@ async function getInspectorRotation(page) {
   return Number(await input.inputValue());
 }
 
-async function getSelectedId(page) {
-  // Infer selection from inspector visibility + plan item
-  const visible = await page.locator("#item-rotation").isVisible().catch(() => false);
-  if (!visible) return null;
-  const plan = await readPlan(page);
-  return plan?.plan?.items?.[0]?.id ?? null;
-}
-
 async function clickWorld(page, worldX, worldY) {
   const p = await worldToScreen(page, worldX, worldY);
   if (!p) throw new Error("worldToScreen failed");
@@ -250,30 +242,6 @@ async function calibrate(page) {
   await page.locator("#calib-length").fill("120");
   await page.getByRole("button", { name: "Apply scale" }).click();
   await pause(page, 1200);
-}
-
-async function setStageScale(page, targetScale) {
-  await bindStage(page);
-  return page.evaluate((target) => {
-    const stage = window.__qaStage;
-    if (!stage) return null;
-    const oldScale = stage.scaleX();
-    const pointer = { x: stage.width() / 2, y: stage.height() / 2 };
-    const mousePointTo = {
-      x: (pointer.x - stage.x()) / oldScale,
-      y: (pointer.y - stage.y()) / oldScale,
-    };
-    stage.scale({ x: target, y: target });
-    stage.position({
-      x: pointer.x - mousePointTo.x * target,
-      y: pointer.y - mousePointTo.y * target,
-    });
-    stage.batchDraw();
-    // Also try to sync React state by dispatching a synthetic wheel won't work;
-    // mutate via fiber is hard — use internal if exposed. For visual checks we
-    // need React scale state. Return and use wheel instead when possible.
-    return { scale: stage.scaleX(), x: stage.x(), y: stage.y() };
-  }, targetScale);
 }
 
 /** Drive zoom with wheel events until close to target. */
@@ -358,7 +326,7 @@ async function main() {
 
   try {
     await page.goto(BASE, { waitUntil: "networkidle" });
-    await page.evaluate((key) => localStorage.clear(), SESSION_KEY);
+    await page.evaluate(() => localStorage.clear());
     await page.reload({ waitUntil: "networkidle" });
     await pause(page, 1600);
     await shot(page, "01-empty");
@@ -672,7 +640,7 @@ async function main() {
     const midScreenR =
       midHandle && midZoom ? midHandle.radius * midZoom.scale : null;
 
-    const minMeta = await zoomToward(page, 0.2);
+    await zoomToward(page, 0.2);
     await pause(page, 700);
     await selectItem(page, "couch");
     const minHandle = await findRotateHandle(page);
@@ -681,7 +649,7 @@ async function main() {
       minHandle && minZoomNow ? minHandle.radius * minZoomNow.scale : null;
     await shot(page, "15-zoom-min");
 
-    const maxMeta = await zoomToward(page, 3.5);
+    await zoomToward(page, 3.5);
     await pause(page, 700);
     await selectItem(page, "couch");
     const maxHandle = await findRotateHandle(page);
