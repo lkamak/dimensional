@@ -781,6 +781,8 @@ export function PlanCanvas({
           radius={14 / scale}
           fill="rgba(61, 90, 91, 0.001)"
           onPointerDown={(e) => startRotation(e, item)}
+          onPointerUp={() => finishRotation(true)}
+          onPointerCancel={() => finishRotation(false)}
         />
       </Group>
     );
@@ -793,6 +795,7 @@ export function PlanCanvas({
     scale,
     rotationPreview,
     startRotation,
+    finishRotation,
   ]);
 
   const elementNodes = useMemo(
