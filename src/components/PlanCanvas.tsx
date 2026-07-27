@@ -51,6 +51,7 @@ type RotationInteraction = {
   itemId: string;
   center: { x: number; y: number };
   rotation: number;
+  pointerId: number;
 };
 
 function useHtmlImage(src: string | null): HTMLImageElement | null {
@@ -314,6 +315,11 @@ export function PlanCanvas({
     itemId: string;
     rotation: number;
   } | null>(null);
+  const [dragPosition, setDragPosition] = useState<{
+    itemId: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const image = useHtmlImage(imageDataUrl);
   const fittedRef = useRef<string | null>(null);
 
@@ -447,6 +453,7 @@ export function PlanCanvas({
         itemId: item.id,
         center: { x: item.x, y: item.y },
         rotation: item.rotation,
+        pointerId: e.evt.pointerId,
       };
       setRotationPreview({ itemId: item.id, rotation: item.rotation });
     },
@@ -458,24 +465,35 @@ export function PlanCanvas({
   useEffect(() => {
     if (!rotatingItemId) return;
 
+    const isActivePointer = (event: PointerEvent) =>
+      event.pointerId === rotationInteractionRef.current?.pointerId;
+
     const handlePointerMove = (event: PointerEvent) => {
+      if (!isActivePointer(event)) return;
       const stage = stageRef.current;
       if (!stage) return;
       stage.setPointersPositions(event);
       updateRotationPreview(stage);
     };
-    const handlePointerUp = () => finishRotation(true);
-    const handlePointerCancel = () => finishRotation(false);
+    const handlePointerUp = (event: PointerEvent) => {
+      if (!isActivePointer(event)) return;
+      finishRotation(true);
+    };
+    const handlePointerCancel = (event: PointerEvent) => {
+      if (!isActivePointer(event)) return;
+      finishRotation(false);
+    };
+    const handleBlur = () => finishRotation(false);
 
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
     window.addEventListener("pointercancel", handlePointerCancel);
-    window.addEventListener("blur", handlePointerCancel);
+    window.addEventListener("blur", handleBlur);
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerCancel);
-      window.removeEventListener("blur", handlePointerCancel);
+      window.removeEventListener("blur", handleBlur);
     };
   }, [rotatingItemId, updateRotationPreview, finishRotation]);
 
@@ -671,7 +689,15 @@ export function PlanCanvas({
             onSelect(item.id);
             onElementSelect(null);
           }}
+          onDragMove={(e) => {
+            setDragPosition({
+              itemId: item.id,
+              x: e.target.x(),
+              y: e.target.y(),
+            });
+          }}
           onDragEnd={(e) => {
+            setDragPosition(null);
             onItemChange(item.id, {
               x: e.target.x(),
               y: e.target.y(),
@@ -757,11 +783,15 @@ export function PlanCanvas({
       rotationPreview?.itemId === item.id
         ? rotationPreview.rotation
         : item.rotation;
+    const x =
+      dragPosition?.itemId === item.id ? dragPosition.x : item.x;
+    const y =
+      dragPosition?.itemId === item.id ? dragPosition.y : item.y;
     const itemTop = -height / 2;
     const handleY = itemTop - 20 / scale;
 
     return (
-      <Group x={item.x} y={item.y} rotation={rotation}>
+      <Group x={x} y={y} rotation={rotation}>
         <Line
           points={[0, itemTop, 0, handleY]}
           stroke="#3d5a5b"
@@ -781,8 +811,24 @@ export function PlanCanvas({
           radius={14 / scale}
           fill="rgba(61, 90, 91, 0.001)"
           onPointerDown={(e) => startRotation(e, item)}
-          onPointerUp={() => finishRotation(true)}
-          onPointerCancel={() => finishRotation(false)}
+          onPointerUp={(e) => {
+            if (
+              e.evt.pointerId !==
+              rotationInteractionRef.current?.pointerId
+            ) {
+              return;
+            }
+            finishRotation(true);
+          }}
+          onPointerCancel={(e) => {
+            if (
+              e.evt.pointerId !==
+              rotationInteractionRef.current?.pointerId
+            ) {
+              return;
+            }
+            finishRotation(false);
+          }}
         />
       </Group>
     );
@@ -794,6 +840,7 @@ export function PlanCanvas({
     items,
     scale,
     rotationPreview,
+    dragPosition,
     startRotation,
     finishRotation,
   ]);
