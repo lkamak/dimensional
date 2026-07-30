@@ -618,6 +618,11 @@ export function PlanCanvas({
       h: item.depthIn * pixelsPerInch,
     }));
 
+    const effectiveRotation = (item: FurnitureItem) =>
+      rotationPreview?.itemId === item.id
+        ? rotationPreview.rotation
+        : item.rotation;
+
     const overlapping = new Set<string>();
     for (let i = 0; i < sized.length; i++) {
       for (let j = i + 1; j < sized.length; j++) {
@@ -630,14 +635,14 @@ export function PlanCanvas({
               y: a.item.y,
               w: a.w,
               h: a.h,
-              rotation: a.item.rotation,
+              rotation: effectiveRotation(a.item),
             },
             {
               x: b.item.x,
               y: b.item.y,
               w: b.w,
               h: b.h,
-              rotation: b.item.rotation,
+              rotation: effectiveRotation(b.item),
             },
           )
         ) {
@@ -650,10 +655,7 @@ export function PlanCanvas({
     return sized.map(({ item, w, h }) => {
       const selected = item.id === selectedId;
       const overlaps = overlapping.has(item.id);
-      const rotation =
-        rotationPreview?.itemId === item.id
-          ? rotationPreview.rotation
-          : item.rotation;
+      const rotation = effectiveRotation(item);
       return (
         <Group
           key={item.id}
@@ -777,13 +779,29 @@ export function PlanCanvas({
     const itemTop = -height / 2;
     const handleY = itemTop - 20 / scale;
 
+    const handlePointerUp = (e: Konva.KonvaEventObject<PointerEvent>) => {
+      if (e.evt.pointerId !== rotationInteractionRef.current?.pointerId) {
+        return;
+      }
+      finishRotation(true);
+    };
+    const handlePointerCancel = (e: Konva.KonvaEventObject<PointerEvent>) => {
+      if (e.evt.pointerId !== rotationInteractionRef.current?.pointerId) {
+        return;
+      }
+      finishRotation(false);
+    };
+
     return (
       <Group x={x} y={y} rotation={rotation}>
         <Line
           points={[0, itemTop, 0, handleY]}
           stroke="#3d5a5b"
           strokeWidth={2 / scale}
-          listening={false}
+          hitStrokeWidth={14 / scale}
+          onPointerDown={(e) => startRotation(e, item)}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
         />
         <Circle
           y={handleY}
@@ -798,22 +816,8 @@ export function PlanCanvas({
           radius={14 / scale}
           fill="rgba(61, 90, 91, 0.001)"
           onPointerDown={(e) => startRotation(e, item)}
-          onPointerUp={(e) => {
-            if (
-              e.evt.pointerId !== rotationInteractionRef.current?.pointerId
-            ) {
-              return;
-            }
-            finishRotation(true);
-          }}
-          onPointerCancel={(e) => {
-            if (
-              e.evt.pointerId !== rotationInteractionRef.current?.pointerId
-            ) {
-              return;
-            }
-            finishRotation(false);
-          }}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
         />
       </Group>
     );
