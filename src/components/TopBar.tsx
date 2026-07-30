@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import type { ToolMode, UnitSystem } from "../types";
+import { TopBarMenu } from "./TopBarMenu";
 import styles from "./TopBar.module.css";
 
 type TopBarProps = {
@@ -34,6 +35,13 @@ const DRAW_TOOLS: { mode: ToolMode; label: string }[] = [
   { mode: "draw-line", label: "Line" },
   { mode: "draw-rect", label: "Rect" },
 ];
+
+function getToolLabel(toolMode: ToolMode): string {
+  if (toolMode === "select") return "Select";
+  if (toolMode === "calibrate") return "Calibrate";
+  if (toolMode === "pan") return "Pan";
+  return DRAW_TOOLS.find((tool) => tool.mode === toolMode)?.label ?? "Select";
+}
 
 export function TopBar({
   unitSystem,
@@ -77,6 +85,21 @@ export function TopBar({
       ? "Unsaved plan *"
       : null;
 
+  const imageToolItems = hasImage
+    ? [
+        {
+          label: isConverting ? "Converting…" : "Convert to drawing",
+          onClick: onConvert,
+          disabled: isConverting,
+        },
+        {
+          label: imageUnderlayVisible ? "Hide underlay" : "Show underlay",
+          onClick: onToggleUnderlay,
+          active: !imageUnderlayVisible,
+        },
+      ]
+    : [];
+
   return (
     <header className={styles.topbar}>
       <div className={styles.brand}>
@@ -100,71 +123,113 @@ export function TopBar({
             e.target.value = "";
           }}
         />
-        <button
-          type="button"
-          className="btn btn-ghost"
-          onClick={() => fileRef.current?.click()}
-        >
-          Upload plan
-        </button>
-        <button type="button" className="btn btn-ghost" onClick={onDrawPlan}>
-          Draw plan
-        </button>
+
+        <TopBarMenu
+          label="Plan"
+          sections={[
+            {
+              items: [
+                {
+                  label: "Upload plan",
+                  onClick: () => fileRef.current?.click(),
+                },
+                {
+                  label: "Draw plan",
+                  onClick: onDrawPlan,
+                },
+              ],
+            },
+            {
+              items: [
+                {
+                  label: "Open",
+                  onClick: onOpen,
+                },
+                {
+                  label: "Save",
+                  onClick: onSave,
+                  disabled: !hasPlan || !isDirty,
+                },
+                {
+                  label: "Save as",
+                  onClick: onSaveAs,
+                  disabled: !hasPlan,
+                },
+                {
+                  label: "Save clean copy",
+                  onClick: onSaveCleanAs,
+                  disabled: !hasPlan,
+                  title: "Save the plan, scale, and drawing without furniture",
+                },
+              ],
+            },
+          ]}
+        />
 
         {hasPlan && (
           <>
-            <div className={styles.divider} />
+            <TopBarMenu
+              label={`Tools · ${getToolLabel(toolMode)}`}
+              sections={[
+                {
+                  items: [
+                    {
+                      label: "Select",
+                      onClick: () => onToolModeChange("select"),
+                      active: toolMode === "select",
+                    },
+                    ...DRAW_TOOLS.map(({ mode, label }) => ({
+                      label,
+                      onClick: () => onToolModeChange(mode),
+                      active: toolMode === mode,
+                    })),
+                  ],
+                },
+                {
+                  items: [
+                    {
+                      label: "Calibrate",
+                      onClick: () =>
+                        onToolModeChange(
+                          toolMode === "calibrate" ? "select" : "calibrate",
+                        ),
+                      active: toolMode === "calibrate",
+                    },
+                  ],
+                },
+                ...(imageToolItems.length > 0 ? [{ items: imageToolItems }] : []),
+              ]}
+            />
 
-            <button
-              type="button"
-              className={`btn btn-ghost ${toolMode === "select" ? "btn-active" : ""}`}
-              onClick={() => onToolModeChange("select")}
-            >
-              Select
-            </button>
-
-            {DRAW_TOOLS.map(({ mode, label }) => (
-              <button
-                key={mode}
-                type="button"
-                className={`btn btn-ghost ${toolMode === mode ? "btn-active" : ""}`}
-                onClick={() => onToolModeChange(mode)}
-              >
-                {label}
-              </button>
-            ))}
-
-            <button
-              type="button"
-              className={`btn btn-ghost ${toolMode === "calibrate" ? "btn-active" : ""}`}
-              onClick={() =>
-                onToolModeChange(
-                  toolMode === "calibrate" ? "select" : "calibrate",
-                )
-              }
-            >
-              Calibrate
-            </button>
-
-            {hasImage && (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  disabled={isConverting}
-                  onClick={onConvert}
-                >
-                  {isConverting ? "Converting…" : "Convert to drawing"}
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-ghost ${imageUnderlayVisible ? "" : "btn-active"}`}
-                  onClick={onToggleUnderlay}
-                >
-                  {imageUnderlayVisible ? "Hide underlay" : "Show underlay"}
-                </button>
-              </>
-            )}
+            <TopBarMenu
+              label="Edit"
+              sections={[
+                {
+                  items: [
+                    {
+                      label: "Clear furniture",
+                      onClick: onClearLayout,
+                      disabled: !hasPlan,
+                    },
+                    {
+                      label: "Clear walls",
+                      onClick: onClearWalls,
+                      disabled: !hasWalls,
+                    },
+                  ],
+                },
+                {
+                  items: [
+                    {
+                      label: "Reset",
+                      onClick: onClearAll,
+                      disabled: !hasPlan,
+                      danger: true,
+                    },
+                  ],
+                },
+              ]}
+            />
           </>
         )}
 
@@ -176,41 +241,6 @@ export function TopBar({
               : "No plan loaded"}
           {hasWalls ? " · walls editable" : ""}
         </span>
-
-        <div className={styles.divider} />
-
-        <button
-          type="button"
-          className="btn btn-ghost"
-          onClick={onOpen}
-        >
-          Open
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={!hasPlan || !isDirty}
-          onClick={onSave}
-        >
-          Save
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={!hasPlan}
-          onClick={onSaveAs}
-        >
-          Save as
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={!hasPlan}
-          onClick={onSaveCleanAs}
-          title="Save the plan, scale, and drawing without furniture"
-        >
-          Save clean copy
-        </button>
 
         <div className={styles.divider} />
 
@@ -230,33 +260,6 @@ export function TopBar({
             metric
           </button>
         </div>
-
-        <div className={styles.divider} />
-
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={!hasPlan}
-          onClick={onClearLayout}
-        >
-          Clear furniture
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={!hasWalls}
-          onClick={onClearWalls}
-        >
-          Clear walls
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost btn-danger"
-          disabled={!hasPlan}
-          onClick={onClearAll}
-        >
-          Reset
-        </button>
       </div>
     </header>
   );
