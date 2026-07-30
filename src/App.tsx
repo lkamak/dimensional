@@ -31,6 +31,7 @@ import type {
   UnitSystem,
 } from "./types";
 import { hasActivePlan } from "./types";
+import { snapRotation } from "./geometry";
 import { displayValueToInches, unitLabel } from "./units";
 import { vectorizeFloorPlan } from "./vectorize";
 
@@ -48,11 +49,6 @@ type ConversionPreview = {
 
 function createId(): string {
   return crypto.randomUUID();
-}
-
-function snapRotation(deg: number): number {
-  const snapped = Math.round(deg / 15) * 15;
-  return ((snapped % 360) + 360) % 360;
 }
 
 export default function App() {
