@@ -391,9 +391,8 @@ export function PlanCanvas({
 
   const isRotating = rotationDrag !== null;
 
+  // Listeners stay mounted so pointerup is never missed between setState and effect attach.
   useEffect(() => {
-    if (!isRotating) return;
-
     const worldFromClient = (clientX: number, clientY: number) => {
       const stage = stageRef.current;
       if (!stage) return null;
@@ -406,9 +405,23 @@ export function PlanCanvas({
       };
     };
 
+    const finish = () => {
+      const session = rotationDragRef.current;
+      if (!session) return;
+      rotationDragRef.current = null;
+      onItemChange(session.id, { rotation: session.preview });
+      setRotationDrag(null);
+      const stage = stageRef.current;
+      if (stage) stage.container().style.cursor = "";
+    };
+
     const onMove = (e: PointerEvent) => {
       const session = rotationDragRef.current;
       if (!session) return;
+      if (e.buttons === 0) {
+        finish();
+        return;
+      }
       const world = worldFromClient(e.clientX, e.clientY);
       if (!world) return;
       const deg =
@@ -423,16 +436,6 @@ export function PlanCanvas({
       setRotationDrag(next);
     };
 
-    const finish = () => {
-      const session = rotationDragRef.current;
-      if (!session) return;
-      rotationDragRef.current = null;
-      onItemChange(session.id, { rotation: session.preview });
-      setRotationDrag(null);
-      const stage = stageRef.current;
-      if (stage) stage.container().style.cursor = "";
-    };
-
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", finish);
     window.addEventListener("pointercancel", finish);
@@ -441,7 +444,7 @@ export function PlanCanvas({
       window.removeEventListener("pointerup", finish);
       window.removeEventListener("pointercancel", finish);
     };
-  }, [isRotating, onItemChange]);
+  }, [onItemChange]);
 
   const isPanning = toolMode === "pan" || spaceDown;
   const isCalibrating = toolMode === "calibrate";
