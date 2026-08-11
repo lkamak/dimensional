@@ -26,18 +26,18 @@ type RotateDrag = {
   id: string;
   centerX: number;
   centerY: number;
+  pointerStartAngle: number;
+  itemStartRotation: number;
   lastRotation: number;
 };
 
-function rotationFromPointer(
+function pointerAngleDegrees(
   centerX: number,
   centerY: number,
   worldX: number,
   worldY: number,
 ): number {
-  const deg =
-    (Math.atan2(worldY - centerY, worldX - centerX) * 180) / Math.PI + 90;
-  return snapRotation(deg);
+  return (Math.atan2(worldY - centerY, worldX - centerX) * 180) / Math.PI + 90;
 }
 
 type PlanCanvasProps = {
@@ -412,11 +412,9 @@ export function PlanCanvas({
     };
   };
 
-  const rotatingId = previewRotation?.id ?? null;
-
+  // Listeners stay mounted so a quick click's pointerup is not missed between
+  // setPreviewRotation and a rotatingId-keyed effect attach.
   useEffect(() => {
-    if (!rotatingId) return;
-
     const clientToWorld = (clientX: number, clientY: number) => {
       const stage = stageRef.current;
       if (!stage) return null;
@@ -433,11 +431,14 @@ export function PlanCanvas({
       if (!drag) return;
       const world = clientToWorld(e.clientX, e.clientY);
       if (!world) return;
-      const next = rotationFromPointer(
+      const angle = pointerAngleDegrees(
         drag.centerX,
         drag.centerY,
         world.x,
         world.y,
+      );
+      const next = snapRotation(
+        drag.itemStartRotation + (angle - drag.pointerStartAngle),
       );
       drag.lastRotation = next;
       setPreviewRotation({ id: drag.id, rotation: next });
@@ -459,7 +460,7 @@ export function PlanCanvas({
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
     };
-  }, [rotatingId]);
+  }, []);
 
   useEffect(() => {
     if (canRotateFurniture) return;
@@ -647,16 +648,18 @@ export function PlanCanvas({
         const world = pointer
           ? { x: (pointer.x - tx) / s, y: (pointer.y - ty) / s }
           : null;
-        const startRotation = world
-          ? rotationFromPointer(item.x, item.y, world.x, world.y)
+        const pointerStartAngle = world
+          ? pointerAngleDegrees(item.x, item.y, world.x, world.y)
           : item.rotation;
         rotateDragRef.current = {
           id: item.id,
           centerX: item.x,
           centerY: item.y,
-          lastRotation: startRotation,
+          pointerStartAngle,
+          itemStartRotation: item.rotation,
+          lastRotation: item.rotation,
         };
-        setPreviewRotation({ id: item.id, rotation: startRotation });
+        setPreviewRotation({ id: item.id, rotation: item.rotation });
       };
 
       return (
