@@ -19,7 +19,26 @@ import type {
   UnitSystem,
 } from "../types";
 import { isDrawTool } from "../types";
+import { snapRotation } from "../geometry";
 import { formatDimensions } from "../units";
+
+type RotateDrag = {
+  id: string;
+  centerX: number;
+  centerY: number;
+  lastRotation: number;
+};
+
+function rotationFromPointer(
+  centerX: number,
+  centerY: number,
+  worldX: number,
+  worldY: number,
+): number {
+  const deg =
+    (Math.atan2(worldY - centerY, worldX - centerX) * 180) / Math.PI + 90;
+  return snapRotation(deg);
+}
 
 type PlanCanvasProps = {
   imageDataUrl: string | null;
@@ -302,8 +321,18 @@ export function PlanCanvas({
     end: { x: number; y: number } | null;
   } | null>(null);
   const drawCommitPendingRef = useRef(false);
+  const rotateDragRef = useRef<RotateDrag | null>(null);
+  const transformRef = useRef({ scale: 1, x: 0, y: 0 });
+  const onItemChangeRef = useRef(onItemChange);
+  const [previewRotation, setPreviewRotation] = useState<{
+    id: string;
+    rotation: number;
+  } | null>(null);
   const image = useHtmlImage(imageDataUrl);
   const fittedRef = useRef<string | null>(null);
+
+  transformRef.current = { scale, x: position.x, y: position.y };
+  onItemChangeRef.current = onItemChange;
 
   const contentWidth = image?.width ?? canvasWidth ?? 800;
   const contentHeight = image?.height ?? canvasHeight ?? 600;
@@ -370,15 +399,76 @@ export function PlanCanvas({
   const isCalibrating = toolMode === "calibrate";
   const drawKind = drawKindFromTool(toolMode);
   const isTwoClickDraw = drawKind === "wall" || drawKind === "line";
+  const canRotateFurniture =
+    toolMode === "select" && !isPanning && !isCalibrating;
 
   const pointerWorld = (stage: Konva.Stage) => {
     const pointer = stage.getPointerPosition();
     if (!pointer) return null;
+    const { scale: s, x, y } = transformRef.current;
     return {
-      x: (pointer.x - position.x) / scale,
-      y: (pointer.y - position.y) / scale,
+      x: (pointer.x - x) / s,
+      y: (pointer.y - y) / s,
     };
   };
+
+  const rotatingId = previewRotation?.id ?? null;
+
+  useEffect(() => {
+    if (!rotatingId) return;
+
+    const clientToWorld = (clientX: number, clientY: number) => {
+      const stage = stageRef.current;
+      if (!stage) return null;
+      const rect = stage.container().getBoundingClientRect();
+      const { scale: s, x, y } = transformRef.current;
+      return {
+        x: (clientX - rect.left - x) / s,
+        y: (clientY - rect.top - y) / s,
+      };
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      const drag = rotateDragRef.current;
+      if (!drag) return;
+      const world = clientToWorld(e.clientX, e.clientY);
+      if (!world) return;
+      const next = rotationFromPointer(
+        drag.centerX,
+        drag.centerY,
+        world.x,
+        world.y,
+      );
+      drag.lastRotation = next;
+      setPreviewRotation({ id: drag.id, rotation: next });
+    };
+
+    const onPointerUp = () => {
+      const drag = rotateDragRef.current;
+      if (!drag) return;
+      onItemChangeRef.current(drag.id, { rotation: drag.lastRotation });
+      rotateDragRef.current = null;
+      setPreviewRotation(null);
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+    };
+  }, [rotatingId]);
+
+  useEffect(() => {
+    if (canRotateFurniture) return;
+    const drag = rotateDragRef.current;
+    if (!drag) return;
+    onItemChangeRef.current(drag.id, { rotation: drag.lastRotation });
+    rotateDragRef.current = null;
+    setPreviewRotation(null);
+  }, [canRotateFurniture]);
 
   const commitDrawElement = (
     kind: DrawElementKind,
@@ -534,15 +624,55 @@ export function PlanCanvas({
     return sized.map(({ item, w, h }) => {
       const selected = item.id === selectedId;
       const overlaps = overlapping.has(item.id);
+      const isRotating = previewRotation?.id === item.id;
+      const rotation = isRotating
+        ? previewRotation.rotation
+        : item.rotation;
+      const showRotateHandle = selected && canRotateFurniture;
+      const handleOffset = 24 / scale;
+      const handleRadius = 6 / scale;
+      const handleHitRadius = 14 / scale;
+
+      const beginRotateDrag = (
+        e: Konva.KonvaEventObject<MouseEvent | TouchEvent>,
+      ) => {
+        e.cancelBubble = true;
+        e.evt.preventDefault();
+        e.evt.stopPropagation();
+        const group = e.target.getParent();
+        if (group) group.draggable(false);
+        const stage = stageRef.current;
+        const pointer = stage?.getPointerPosition() ?? null;
+        const { scale: s, x: tx, y: ty } = transformRef.current;
+        const world = pointer
+          ? { x: (pointer.x - tx) / s, y: (pointer.y - ty) / s }
+          : null;
+        const startRotation = world
+          ? rotationFromPointer(item.x, item.y, world.x, world.y)
+          : item.rotation;
+        rotateDragRef.current = {
+          id: item.id,
+          centerX: item.x,
+          centerY: item.y,
+          lastRotation: startRotation,
+        };
+        setPreviewRotation({ id: item.id, rotation: startRotation });
+      };
+
       return (
         <Group
           key={item.id}
           x={item.x}
           y={item.y}
-          rotation={item.rotation}
+          rotation={rotation}
           offsetX={w / 2}
           offsetY={h / 2}
-          draggable={!isCalibrating && !isPanning && !isDrawTool(toolMode)}
+          draggable={
+            !isCalibrating &&
+            !isPanning &&
+            !isDrawTool(toolMode) &&
+            !isRotating
+          }
           onClick={(e) => {
             e.cancelBubble = true;
             onSelect(item.id);
@@ -552,6 +682,11 @@ export function PlanCanvas({
             e.cancelBubble = true;
             onSelect(item.id);
             onElementSelect(null);
+          }}
+          onDragStart={(e) => {
+            if (rotateDragRef.current) {
+              e.target.stopDrag();
+            }
           }}
           onDragEnd={(e) => {
             onItemChange(item.id, {
@@ -603,6 +738,27 @@ export function PlanCanvas({
               listening={false}
             />
           )}
+          {showRotateHandle && (
+            <>
+              <Line
+                points={[w / 2, 0, w / 2, -handleOffset]}
+                stroke="#3d5a5b"
+                strokeWidth={1.5 / scale}
+                listening={false}
+              />
+              <Circle
+                x={w / 2}
+                y={-handleOffset}
+                radius={handleRadius}
+                fill="#3d5a5b"
+                stroke="#fafaf7"
+                strokeWidth={1.5 / scale}
+                hitStrokeWidth={handleHitRadius * 2}
+                onMouseDown={beginRotateDrag}
+                onTouchStart={beginRotateDrag}
+              />
+            </>
+          )}
         </Group>
       );
     });
@@ -612,12 +768,14 @@ export function PlanCanvas({
     selectedId,
     isCalibrating,
     isPanning,
+    canRotateFurniture,
     toolMode,
     onSelect,
     onElementSelect,
     onItemChange,
     scale,
     unitSystem,
+    previewRotation,
   ]);
 
   const elementNodes = useMemo(
