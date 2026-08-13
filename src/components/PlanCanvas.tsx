@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Stage,
   Layer,
@@ -20,6 +20,12 @@ import type {
 } from "../types";
 import { isDrawTool } from "../types";
 import { formatDimensions } from "../units";
+import {
+  normalizeRotation,
+  rotationFromPointer,
+  shortestRotationDelta,
+  snapRotation,
+} from "../rotation";
 
 type PlanCanvasProps = {
   imageDataUrl: string | null;
@@ -266,6 +272,39 @@ function renderDraftPreview(
   );
 }
 
+const ROTATION_HANDLE_OFFSET = 24;
+
+function renderRotationHandle(
+  w: number,
+  scale: number,
+  onRotateStart: (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => void,
+) {
+  const handleY = -ROTATION_HANDLE_OFFSET / scale;
+  return (
+    <>
+      <Line
+        points={[w / 2, 0, w / 2, handleY]}
+        stroke="#3d5a5b"
+        strokeWidth={1.5 / scale}
+        hitStrokeWidth={12 / scale}
+        onMouseDown={onRotateStart}
+        onTouchStart={onRotateStart}
+      />
+      <Circle
+        x={w / 2}
+        y={handleY}
+        radius={5 / scale}
+        fill="#3d5a5b"
+        stroke="#fafaf7"
+        strokeWidth={1.5 / scale}
+        hitStrokeWidth={12 / scale}
+        onMouseDown={onRotateStart}
+        onTouchStart={onRotateStart}
+      />
+    </>
+  );
+}
+
 export function PlanCanvas({
   imageDataUrl,
   canvasWidth,
@@ -302,6 +341,14 @@ export function PlanCanvas({
     end: { x: number; y: number } | null;
   } | null>(null);
   const drawCommitPendingRef = useRef(false);
+  const rotatingIdRef = useRef<string | null>(null);
+  const draftRotationRef = useRef<number | null>(null);
+  const rotationOriginRef = useRef<{
+    rotation: number;
+    pointerDeg: number;
+  } | null>(null);
+  const [rotatingId, setRotatingId] = useState<string | null>(null);
+  const [draftRotation, setDraftRotation] = useState<number | null>(null);
   const image = useHtmlImage(imageDataUrl);
   const fittedRef = useRef<string | null>(null);
 
@@ -361,15 +408,58 @@ export function PlanCanvas({
     });
   }, [image, fitKey, contentWidth, contentHeight, size.width, size.height]);
 
+  const cancelRotation = useCallback(() => {
+    rotatingIdRef.current = null;
+    draftRotationRef.current = null;
+    rotationOriginRef.current = null;
+    setRotatingId(null);
+    setDraftRotation(null);
+  }, []);
+
+  const finishRotation = useCallback(() => {
+    const id = rotatingIdRef.current;
+    const deg = draftRotationRef.current;
+    if (id != null && deg != null) {
+      const origin = rotationOriginRef.current;
+      const rotated = origin != null && deg !== origin.rotation;
+      onItemChange(id, { rotation: rotated ? snapRotation(deg) : deg });
+    }
+    rotatingIdRef.current = null;
+    draftRotationRef.current = null;
+    rotationOriginRef.current = null;
+    setRotatingId(null);
+    setDraftRotation(null);
+  }, [onItemChange]);
+
   useEffect(() => {
     setDrawDraft(null);
     drawCommitPendingRef.current = false;
-  }, [toolMode]);
+    cancelRotation();
+  }, [toolMode, cancelRotation]);
+
+  useEffect(() => {
+    if (rotatingId && rotatingId !== selectedId) {
+      cancelRotation();
+    }
+  }, [selectedId, rotatingId, cancelRotation]);
+
+  useEffect(() => {
+    if (!rotatingId) return;
+    const onWindowPointerUp = () => finishRotation();
+    window.addEventListener("mouseup", onWindowPointerUp);
+    window.addEventListener("touchend", onWindowPointerUp);
+    return () => {
+      window.removeEventListener("mouseup", onWindowPointerUp);
+      window.removeEventListener("touchend", onWindowPointerUp);
+    };
+  }, [rotatingId, finishRotation]);
 
   const isPanning = toolMode === "pan" || spaceDown;
   const isCalibrating = toolMode === "calibrate";
   const drawKind = drawKindFromTool(toolMode);
   const isTwoClickDraw = drawKind === "wall" || drawKind === "line";
+  const showRotationHandle =
+    toolMode === "select" && !isPanning && !isCalibrating && !drawKind;
 
   const pointerWorld = (stage: Konva.Stage) => {
     const pointer = stage.getPointerPosition();
@@ -397,6 +487,37 @@ export function PlanCanvas({
       y2: rect.y2,
     });
     setDrawDraft(null);
+  };
+
+  const startRotation = (item: FurnitureItem) => {
+    rotatingIdRef.current = item.id;
+    draftRotationRef.current = item.rotation;
+    rotationOriginRef.current = null;
+    setRotatingId(item.id);
+    setDraftRotation(item.rotation);
+  };
+
+  const updateRotationDraft = (stage: Konva.Stage) => {
+    const id = rotatingIdRef.current;
+    if (!id) return;
+    const item = items.find((entry) => entry.id === id);
+    if (!item) return;
+    const world = pointerWorld(stage);
+    if (!world) return;
+    const pointerDeg = rotationFromPointer({ x: item.x, y: item.y }, world);
+    if (!rotationOriginRef.current) {
+      rotationOriginRef.current = {
+        rotation: draftRotationRef.current ?? item.rotation,
+        pointerDeg,
+      };
+      return;
+    }
+    const { rotation, pointerDeg: originPointerDeg } = rotationOriginRef.current;
+    const deg = normalizeRotation(
+      rotation + shortestRotationDelta(originPointerDeg, pointerDeg),
+    );
+    draftRotationRef.current = deg;
+    setDraftRotation(deg);
   };
 
   const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -428,7 +549,7 @@ export function PlanCanvas({
   };
 
   const handleStageMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (isPanning) return;
+    if (isPanning || rotatingIdRef.current) return;
     const stage = stageRef.current;
     if (!stage) return;
 
@@ -474,6 +595,12 @@ export function PlanCanvas({
   const handleStageMouseMove = () => {
     const stage = stageRef.current;
     if (!stage) return;
+
+    if (rotatingIdRef.current) {
+      updateRotationDraft(stage);
+      return;
+    }
+
     const world = pointerWorld(stage);
     if (!world) return;
 
@@ -488,9 +615,21 @@ export function PlanCanvas({
   };
 
   const handleStageMouseUp = () => {
+    if (rotatingIdRef.current) {
+      finishRotation();
+      return;
+    }
     if (!drawDraft || isTwoClickDraw || isPanning) return;
     if (!drawDraft.end) return;
     commitDrawElement(drawDraft.kind, drawDraft.start, drawDraft.end);
+  };
+
+  const handleStageTouchMove = () => {
+    handleStageMouseMove();
+  };
+
+  const handleStageTouchEnd = () => {
+    handleStageMouseUp();
   };
 
   const furnitureNodes = useMemo(() => {
@@ -501,6 +640,11 @@ export function PlanCanvas({
       w: item.widthIn * pixelsPerInch,
       h: item.depthIn * pixelsPerInch,
     }));
+
+    const rotationFor = (entry: (typeof sized)[number]["item"]) =>
+      entry.id === rotatingId && draftRotation != null
+        ? draftRotation
+        : entry.rotation;
 
     const overlapping = new Set<string>();
     for (let i = 0; i < sized.length; i++) {
@@ -514,14 +658,14 @@ export function PlanCanvas({
               y: a.item.y,
               w: a.w,
               h: a.h,
-              rotation: a.item.rotation,
+              rotation: rotationFor(a.item),
             },
             {
               x: b.item.x,
               y: b.item.y,
               w: b.w,
               h: b.h,
-              rotation: b.item.rotation,
+              rotation: rotationFor(b.item),
             },
           )
         ) {
@@ -534,15 +678,24 @@ export function PlanCanvas({
     return sized.map(({ item, w, h }) => {
       const selected = item.id === selectedId;
       const overlaps = overlapping.has(item.id);
+      const isRotating = rotatingId === item.id;
+      const displayRotation =
+        isRotating && draftRotation != null ? draftRotation : item.rotation;
+      const canDragBody =
+        !isCalibrating &&
+        !isPanning &&
+        !isDrawTool(toolMode) &&
+        !isRotating &&
+        rotatingId == null;
       return (
         <Group
           key={item.id}
           x={item.x}
           y={item.y}
-          rotation={item.rotation}
+          rotation={displayRotation}
           offsetX={w / 2}
           offsetY={h / 2}
-          draggable={!isCalibrating && !isPanning && !isDrawTool(toolMode)}
+          draggable={canDragBody}
           onClick={(e) => {
             e.cancelBubble = true;
             onSelect(item.id);
@@ -603,6 +756,12 @@ export function PlanCanvas({
               listening={false}
             />
           )}
+          {selected &&
+            showRotationHandle &&
+            renderRotationHandle(w, scale, (e) => {
+              e.cancelBubble = true;
+              startRotation(item);
+            })}
         </Group>
       );
     });
@@ -610,9 +769,12 @@ export function PlanCanvas({
     items,
     pixelsPerInch,
     selectedId,
+    rotatingId,
+    draftRotation,
     isCalibrating,
     isPanning,
     toolMode,
+    showRotationHandle,
     onSelect,
     onElementSelect,
     onItemChange,
@@ -661,9 +823,11 @@ export function PlanCanvas({
 
   const cursor = isPanning
     ? "grab"
-    : isCalibrating || drawKind
-      ? "crosshair"
-      : "default";
+    : rotatingId
+      ? "grabbing"
+      : isCalibrating || drawKind
+        ? "crosshair"
+        : "default";
 
   return (
     <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
@@ -685,6 +849,8 @@ export function PlanCanvas({
         onMouseDown={handleStageMouseDown}
         onMouseMove={handleStageMouseMove}
         onMouseUp={handleStageMouseUp}
+        onTouchMove={handleStageTouchMove}
+        onTouchEnd={handleStageTouchEnd}
         style={{ cursor }}
       >
         <Layer>
