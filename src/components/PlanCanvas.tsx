@@ -20,7 +20,12 @@ import type {
 } from "../types";
 import { isDrawTool } from "../types";
 import { formatDimensions } from "../units";
-import { rotationFromPointer, snapRotation } from "../rotation";
+import {
+  normalizeRotation,
+  rotationFromPointer,
+  shortestRotationDelta,
+  snapRotation,
+} from "../rotation";
 
 type PlanCanvasProps = {
   imageDataUrl: string | null;
@@ -281,7 +286,9 @@ function renderRotationHandle(
         points={[w / 2, 0, w / 2, handleY]}
         stroke="#3d5a5b"
         strokeWidth={1.5 / scale}
-        listening={false}
+        hitStrokeWidth={12 / scale}
+        onMouseDown={onRotateStart}
+        onTouchStart={onRotateStart}
       />
       <Circle
         x={w / 2}
@@ -336,6 +343,10 @@ export function PlanCanvas({
   const drawCommitPendingRef = useRef(false);
   const rotatingIdRef = useRef<string | null>(null);
   const draftRotationRef = useRef<number | null>(null);
+  const rotationOriginRef = useRef<{
+    rotation: number;
+    pointerDeg: number;
+  } | null>(null);
   const [rotatingId, setRotatingId] = useState<string | null>(null);
   const [draftRotation, setDraftRotation] = useState<number | null>(null);
   const image = useHtmlImage(imageDataUrl);
@@ -400,6 +411,7 @@ export function PlanCanvas({
   const cancelRotation = useCallback(() => {
     rotatingIdRef.current = null;
     draftRotationRef.current = null;
+    rotationOriginRef.current = null;
     setRotatingId(null);
     setDraftRotation(null);
   }, []);
@@ -408,10 +420,11 @@ export function PlanCanvas({
     const id = rotatingIdRef.current;
     const deg = draftRotationRef.current;
     if (id != null && deg != null) {
-      onItemChange(id, { rotation: deg });
+      onItemChange(id, { rotation: snapRotation(deg) });
     }
     rotatingIdRef.current = null;
     draftRotationRef.current = null;
+    rotationOriginRef.current = null;
     setRotatingId(null);
     setDraftRotation(null);
   }, [onItemChange]);
@@ -477,6 +490,7 @@ export function PlanCanvas({
   const startRotation = (item: FurnitureItem) => {
     rotatingIdRef.current = item.id;
     draftRotationRef.current = item.rotation;
+    rotationOriginRef.current = null;
     setRotatingId(item.id);
     setDraftRotation(item.rotation);
   };
@@ -488,8 +502,17 @@ export function PlanCanvas({
     if (!item) return;
     const world = pointerWorld(stage);
     if (!world) return;
-    const deg = snapRotation(
-      rotationFromPointer({ x: item.x, y: item.y }, world),
+    const pointerDeg = rotationFromPointer({ x: item.x, y: item.y }, world);
+    if (!rotationOriginRef.current) {
+      rotationOriginRef.current = {
+        rotation: draftRotationRef.current ?? item.rotation,
+        pointerDeg,
+      };
+      return;
+    }
+    const { rotation, pointerDeg: originPointerDeg } = rotationOriginRef.current;
+    const deg = normalizeRotation(
+      rotation + shortestRotationDelta(originPointerDeg, pointerDeg),
     );
     draftRotationRef.current = deg;
     setDraftRotation(deg);
