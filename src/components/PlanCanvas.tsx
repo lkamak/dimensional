@@ -420,7 +420,9 @@ export function PlanCanvas({
     const id = rotatingIdRef.current;
     const deg = draftRotationRef.current;
     if (id != null && deg != null) {
-      onItemChange(id, { rotation: snapRotation(deg) });
+      const origin = rotationOriginRef.current;
+      const rotated = origin != null && deg !== origin.rotation;
+      onItemChange(id, { rotation: rotated ? snapRotation(deg) : deg });
     }
     rotatingIdRef.current = null;
     draftRotationRef.current = null;
