@@ -111,6 +111,18 @@ function normalizeRect(
   };
 }
 
+function resolveDrawCoords(
+  kind: DrawElementKind,
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+): { x1: number; y1: number; x2: number; y2: number } | null {
+  if (dist(start, end) < 4) return null;
+  const isLineLike = kind === "wall" || kind === "line";
+  return isLineLike
+    ? { x1: start.x, y1: start.y, x2: end.x, y2: end.y }
+    : normalizeRect(start.x, start.y, end.x, end.y);
+}
+
 function drawKindFromTool(toolMode: ToolMode): DrawElementKind | null {
   if (toolMode === "draw-wall") return "wall";
   if (toolMode === "draw-room") return "room";
@@ -385,16 +397,16 @@ export function PlanCanvas({
     start: { x: number; y: number },
     end: { x: number; y: number },
   ) => {
-    if (dist(start, end) < 4) return;
+    const coords = resolveDrawCoords(kind, start, end);
+    if (!coords) return;
     drawCommitPendingRef.current = true;
-    const rect = normalizeRect(start.x, start.y, end.x, end.y);
     onElementAdd({
       id: crypto.randomUUID(),
       kind,
-      x1: rect.x1,
-      y1: rect.y1,
-      x2: rect.x2,
-      y2: rect.y2,
+      x1: coords.x1,
+      y1: coords.y1,
+      x2: coords.x2,
+      y2: coords.y2,
     });
     setDrawDraft(null);
   };
