@@ -84,6 +84,8 @@ export type CatalogPreset = {
   depthIn: number;
 };
 
+export type CustomCatalogPreset = CatalogPreset & { id: string };
+
 export type ToolMode =
   | "select"
   | "calibrate"

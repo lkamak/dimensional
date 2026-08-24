@@ -1,5 +1,7 @@
 import type {
+  CustomCatalogPreset,
   DrawElement,
+  FurnitureKind,
   PlanState,
   SavedPlan,
   SavedPlanKind,
@@ -14,7 +16,18 @@ const LEGACY_KEY = "dimensional.plan.v1";
 const PRE_LIBRARY_KEY = "dimensional.plan.v2";
 const SESSION_KEY = "dimensional.session.v2";
 const LIBRARY_INDEX_KEY = "dimensional.library.index.v2";
+const CUSTOM_CATALOG_KEY = "dimensional.catalog.custom.v1";
 const planEntryKey = (id: string) => `dimensional.library.plan.${id}.v2`;
+
+const FURNITURE_KINDS = new Set<FurnitureKind>([
+  "couch",
+  "tv_console",
+  "desk",
+  "bed",
+  "chair",
+  "table",
+  "custom",
+]);
 
 type LoadedSessionSnapshot = SessionSnapshot & {
   needsLegacyMigration: boolean;
@@ -341,6 +354,41 @@ export function deleteSavedPlan(id: string): StorageResult {
 
   tryRemoveItem(planEntryKey(id));
   return { ok: true, value: undefined };
+}
+
+function parseCustomPresets(raw: unknown): CustomCatalogPreset[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (entry): entry is CustomCatalogPreset =>
+      entry != null &&
+      typeof entry === "object" &&
+      typeof (entry as CustomCatalogPreset).id === "string" &&
+      typeof (entry as CustomCatalogPreset).label === "string" &&
+      FURNITURE_KINDS.has((entry as CustomCatalogPreset).kind) &&
+      typeof (entry as CustomCatalogPreset).widthIn === "number" &&
+      Number.isFinite((entry as CustomCatalogPreset).widthIn) &&
+      (entry as CustomCatalogPreset).widthIn > 0 &&
+      typeof (entry as CustomCatalogPreset).depthIn === "number" &&
+      Number.isFinite((entry as CustomCatalogPreset).depthIn) &&
+      (entry as CustomCatalogPreset).depthIn > 0,
+  );
+}
+
+export function loadCustomPresets(): CustomCatalogPreset[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_CATALOG_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as { presets?: unknown };
+    return parseCustomPresets(parsed.presets);
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomPresets(
+  presets: CustomCatalogPreset[],
+): StorageResult {
+  return trySetItem(CUSTOM_CATALOG_KEY, JSON.stringify({ presets }));
 }
 
 export function createBlankPlanState(
