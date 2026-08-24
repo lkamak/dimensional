@@ -105,6 +105,12 @@
   box-shadow: 0 0 0 3px var(--selection-soft);
 }
 
+.modal-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 .modal-wide {
   width: min(460px, calc(100vw - 32px));
 }

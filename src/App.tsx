@@ -6,22 +6,26 @@ import { Inspector } from "./components/Inspector";
 import { EmptyState } from "./components/EmptyState";
 import { PlanCanvas } from "./components/PlanCanvas";
 import { PlanLibraryModal } from "./components/PlanLibraryModal";
+import { CreateFurnitureModal } from "./components/CreateFurnitureModal";
 import {
   clearLegacyPlanState,
   DEFAULT_STATE,
   createBlankPlanState,
   deleteSavedPlan,
   listSavedPlans,
+  loadCustomCatalog,
   loadSavedPlan,
   loadSessionSnapshot,
   planStateWithoutFurniture,
   planStatesEqual,
+  saveCustomCatalog,
   savePlanToLibrary,
   saveSessionSnapshot,
 } from "./storage";
 import type {
   CalibrationDraft,
   CatalogPreset,
+  CustomCatalogPreset,
   DrawElement,
   FurnitureItem,
   PlanState,
@@ -86,6 +90,10 @@ export default function App() {
   const [libraryModal, setLibraryModal] = useState<LibraryModalMode>(null);
   const [pendingAction, setPendingAction] = useState<"open" | null>(null);
   const [storageError, setStorageError] = useState<StorageError | null>(null);
+  const [customCatalog, setCustomCatalog] = useState<CustomCatalogPreset[]>(
+    () => loadCustomCatalog(),
+  );
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
   const [conversionPreview, setConversionPreview] =
     useState<ConversionPreview | null>(null);
@@ -147,6 +155,7 @@ export default function App() {
         setSelectedElementId(null);
         setLibraryModal(null);
         setPendingAction(null);
+        setCreateModalOpen(false);
         cancelConversion();
       }
       if (
@@ -354,6 +363,41 @@ export default function App() {
       setToolMode("select");
     },
     [plan, canvasSize],
+  );
+
+  const handleCreateCustom = useCallback(
+    (draft: { label: string; widthIn: number; depthIn: number }) => {
+      const preset: CustomCatalogPreset = {
+        id: createId(),
+        kind: "custom",
+        label: draft.label,
+        widthIn: draft.widthIn,
+        depthIn: draft.depthIn,
+      };
+      const nextCatalog = [...customCatalog, preset];
+      const result = saveCustomCatalog(nextCatalog);
+      if (!result.ok) {
+        setStorageError(result.error);
+        return;
+      }
+      setCustomCatalog(nextCatalog);
+      setCreateModalOpen(false);
+      handlePlace(preset);
+    },
+    [customCatalog, handlePlace],
+  );
+
+  const handleDeleteCustom = useCallback(
+    (id: string) => {
+      const nextCatalog = customCatalog.filter((p) => p.id !== id);
+      const result = saveCustomCatalog(nextCatalog);
+      if (!result.ok) {
+        setStorageError(result.error);
+        return;
+      }
+      setCustomCatalog(nextCatalog);
+    },
+    [customCatalog],
   );
 
   const handleItemChange = useCallback(
@@ -580,7 +624,10 @@ export default function App() {
         <CatalogRail
           unitSystem={plan.unitSystem}
           canPlace={canPlace}
+          customCatalog={customCatalog}
           onPlace={handlePlace}
+          onCreate={() => setCreateModalOpen(true)}
+          onDeleteCustom={handleDeleteCustom}
         />
 
         <div className="canvas-area">
@@ -743,6 +790,15 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {createModalOpen && (
+        <CreateFurnitureModal
+          unitSystem={plan.unitSystem}
+          canPlace={canPlace}
+          onCreate={handleCreateCustom}
+          onClose={() => setCreateModalOpen(false)}
+        />
       )}
 
       {libraryModal && (

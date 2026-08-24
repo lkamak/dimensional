@@ -1,4 +1,5 @@
 import type {
+  CustomCatalogPreset,
   DrawElement,
   PlanState,
   SavedPlan,
@@ -14,6 +15,7 @@ const LEGACY_KEY = "dimensional.plan.v1";
 const PRE_LIBRARY_KEY = "dimensional.plan.v2";
 const SESSION_KEY = "dimensional.session.v2";
 const LIBRARY_INDEX_KEY = "dimensional.library.index.v2";
+const CUSTOM_CATALOG_KEY = "dimensional.customCatalog.v1";
 const planEntryKey = (id: string) => `dimensional.library.plan.${id}.v2`;
 
 type LoadedSessionSnapshot = SessionSnapshot & {
@@ -352,4 +354,66 @@ export function createBlankPlanState(
     canvasHeight: DEFAULT_CANVAS_HEIGHT,
     unitSystem,
   };
+}
+
+function normalizeCustomPreset(raw: unknown): CustomCatalogPreset | null {
+  if (raw == null || typeof raw !== "object") return null;
+  const p = raw as {
+    id?: unknown;
+    label?: unknown;
+    widthIn?: unknown;
+    depthIn?: unknown;
+  };
+  if (typeof p.id !== "string" || !p.id) return null;
+  if (typeof p.label !== "string") return null;
+  const label = p.label.trim();
+  if (!label) return null;
+  if (
+    typeof p.widthIn !== "number" ||
+    !Number.isFinite(p.widthIn) ||
+    p.widthIn <= 0
+  ) {
+    return null;
+  }
+  if (
+    typeof p.depthIn !== "number" ||
+    !Number.isFinite(p.depthIn) ||
+    p.depthIn <= 0
+  ) {
+    return null;
+  }
+  return {
+    id: p.id,
+    kind: "custom",
+    label,
+    widthIn: p.widthIn,
+    depthIn: p.depthIn,
+  };
+}
+
+export function loadCustomCatalog(): CustomCatalogPreset[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_CATALOG_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    const list = Array.isArray(parsed)
+      ? parsed
+      : parsed != null &&
+          typeof parsed === "object" &&
+          Array.isArray((parsed as { presets?: unknown }).presets)
+        ? (parsed as { presets: unknown[] }).presets
+        : null;
+    if (!list) return [];
+    return list
+      .map(normalizeCustomPreset)
+      .filter((p): p is CustomCatalogPreset => p != null);
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomCatalog(
+  presets: CustomCatalogPreset[],
+): StorageResult {
+  return trySetItem(CUSTOM_CATALOG_KEY, JSON.stringify({ presets }));
 }

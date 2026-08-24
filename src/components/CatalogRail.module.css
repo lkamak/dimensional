@@ -62,3 +62,34 @@
   line-height: 1.4;
   color: var(--fg-subtle);
 }
+
+.create {
+  width: 100%;
+}
+
+.customRow {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.customRow .item {
+  flex: 1;
+  min-width: 0;
+}
+
+.delete {
+  flex-shrink: 0;
+  width: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--danger);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.delete:hover {
+  background: var(--danger-soft);
+}
