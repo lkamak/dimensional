@@ -160,8 +160,10 @@ export default function App() {
       }
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
+        !creatingFurniture &&
         !(e.target instanceof HTMLInputElement) &&
-        !(e.target instanceof HTMLTextAreaElement)
+        !(e.target instanceof HTMLTextAreaElement) &&
+        !(e.target instanceof HTMLSelectElement)
       ) {
         if (selectedId) {
           setPlan((prev) => ({
@@ -180,7 +182,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, selectedElementId, cancelConversion]);
+  }, [selectedId, selectedElementId, creatingFurniture, cancelConversion]);
 
   const selectedItem = useMemo(
     () => plan.items.find((i) => i.id === selectedId) ?? null,
