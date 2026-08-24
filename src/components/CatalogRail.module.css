@@ -62,3 +62,49 @@
   line-height: 1.4;
   color: var(--fg-subtle);
 }
+
+.createButton {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--selection);
+  font-size: 13.5px;
+  text-align: left;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.createButton:hover {
+  border-color: rgba(61, 90, 91, 0.28);
+  background: var(--selection-soft);
+}
+
+.customRow {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.customRow .item {
+  flex: 1;
+  min-width: 0;
+}
+
+.deleteButton {
+  flex-shrink: 0;
+  align-self: center;
+  height: 28px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.deleteButton:hover:not(:disabled) {
+  background: var(--danger-soft);
+}

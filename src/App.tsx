@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { TopBar } from "./components/TopBar";
 import { CatalogRail } from "./components/CatalogRail";
+import { CustomFurnitureModal } from "./components/CustomFurnitureModal";
 import { Inspector } from "./components/Inspector";
 import { EmptyState } from "./components/EmptyState";
 import { PlanCanvas } from "./components/PlanCanvas";
@@ -12,16 +13,19 @@ import {
   createBlankPlanState,
   deleteSavedPlan,
   listSavedPlans,
+  loadCustomPresets,
   loadSavedPlan,
   loadSessionSnapshot,
   planStateWithoutFurniture,
   planStatesEqual,
+  saveCustomPresets,
   savePlanToLibrary,
   saveSessionSnapshot,
 } from "./storage";
 import type {
   CalibrationDraft,
   CatalogPreset,
+  CustomCatalogPreset,
   DrawElement,
   FurnitureItem,
   PlanState,
@@ -86,6 +90,10 @@ export default function App() {
   const [libraryModal, setLibraryModal] = useState<LibraryModalMode>(null);
   const [pendingAction, setPendingAction] = useState<"open" | null>(null);
   const [storageError, setStorageError] = useState<StorageError | null>(null);
+  const [customPresets, setCustomPresets] = useState<CustomCatalogPreset[]>(() =>
+    loadCustomPresets(),
+  );
+  const [creatingFurniture, setCreatingFurniture] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
   const [conversionPreview, setConversionPreview] =
     useState<ConversionPreview | null>(null);
@@ -147,12 +155,15 @@ export default function App() {
         setSelectedElementId(null);
         setLibraryModal(null);
         setPendingAction(null);
+        setCreatingFurniture(false);
         cancelConversion();
       }
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
+        !creatingFurniture &&
         !(e.target instanceof HTMLInputElement) &&
-        !(e.target instanceof HTMLTextAreaElement)
+        !(e.target instanceof HTMLTextAreaElement) &&
+        !(e.target instanceof HTMLSelectElement)
       ) {
         if (selectedId) {
           setPlan((prev) => ({
@@ -171,7 +182,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, selectedElementId, cancelConversion]);
+  }, [selectedId, selectedElementId, creatingFurniture, cancelConversion]);
 
   const selectedItem = useMemo(
     () => plan.items.find((i) => i.id === selectedId) ?? null,
@@ -354,6 +365,34 @@ export default function App() {
       setToolMode("select");
     },
     [plan, canvasSize],
+  );
+
+  const handleCreatePreset = useCallback(
+    (draft: Omit<CustomCatalogPreset, "id">) => {
+      const entry: CustomCatalogPreset = { id: createId(), ...draft };
+      const next = [...customPresets, entry];
+      const result = saveCustomPresets(next);
+      if (!result.ok) {
+        setStorageError(result.error);
+        return;
+      }
+      setCustomPresets(next);
+      setCreatingFurniture(false);
+    },
+    [customPresets],
+  );
+
+  const handleDeleteCustomPreset = useCallback(
+    (id: string) => {
+      const next = customPresets.filter((preset) => preset.id !== id);
+      const result = saveCustomPresets(next);
+      if (!result.ok) {
+        setStorageError(result.error);
+        return;
+      }
+      setCustomPresets(next);
+    },
+    [customPresets],
   );
 
   const handleItemChange = useCallback(
@@ -580,6 +619,9 @@ export default function App() {
         <CatalogRail
           unitSystem={plan.unitSystem}
           canPlace={canPlace}
+          customPresets={customPresets}
+          onCreate={() => setCreatingFurniture(true)}
+          onDeleteCustom={handleDeleteCustomPreset}
           onPlace={handlePlace}
         />
 
@@ -743,6 +785,14 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {creatingFurniture && (
+        <CustomFurnitureModal
+          unitSystem={plan.unitSystem}
+          onCancel={() => setCreatingFurniture(false)}
+          onCreate={handleCreatePreset}
+        />
       )}
 
       {libraryModal && (

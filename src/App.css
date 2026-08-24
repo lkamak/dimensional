@@ -91,7 +91,8 @@
   letter-spacing: 0.02em;
 }
 
-.modal-field input {
+.modal-field input,
+.modal-field select {
   height: 36px;
   padding: 0 10px;
   border-radius: var(--radius-sm);
@@ -100,7 +101,8 @@
   outline: none;
 }
 
-.modal-field input:focus {
+.modal-field input:focus,
+.modal-field select:focus {
   border-color: var(--selection);
   box-shadow: 0 0 0 3px var(--selection-soft);
 }
