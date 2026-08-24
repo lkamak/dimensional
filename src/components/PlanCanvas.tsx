@@ -329,7 +329,8 @@ export function PlanCanvas({
         if (
           e.target instanceof HTMLInputElement ||
           e.target instanceof HTMLTextAreaElement ||
-          e.target instanceof HTMLSelectElement
+          e.target instanceof HTMLSelectElement ||
+          e.target instanceof HTMLButtonElement
         ) {
           return;
         }
