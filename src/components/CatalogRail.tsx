@@ -111,7 +111,7 @@ export function CatalogRail({ unitSystem, canPlace, onPlace }: CatalogRailProps)
                 id="build-width"
                 type="number"
                 min={1}
-                step={unitSystem === "metric" ? 1 : 0.5}
+                step={unitSystem === "metric" ? 0.1 : 0.5}
                 value={widthDisplay}
                 disabled={!canPlace}
                 onChange={(e) => {
@@ -127,7 +127,7 @@ export function CatalogRail({ unitSystem, canPlace, onPlace }: CatalogRailProps)
                 id="build-depth"
                 type="number"
                 min={1}
-                step={unitSystem === "metric" ? 1 : 0.5}
+                step={unitSystem === "metric" ? 0.1 : 0.5}
                 value={depthDisplay}
                 disabled={!canPlace}
                 onChange={(e) => {
