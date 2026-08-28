@@ -1,4 +1,6 @@
 .topbar {
+  position: relative;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -91,4 +93,52 @@
   white-space: nowrap;
   padding-left: 10px;
   border-left: 1px solid var(--border);
+}
+
+.toolMenu {
+  position: relative;
+}
+
+.caret {
+  width: 0;
+  height: 0;
+  border-left: 3.5px solid transparent;
+  border-right: 3.5px solid transparent;
+  border-top: 4px solid currentColor;
+  opacity: 0.55;
+}
+
+.toolMenuList {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  min-width: 148px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  box-shadow: 0 8px 24px rgba(42, 41, 36, 0.12);
+}
+
+.toolMenuItem {
+  display: flex;
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 13px;
+  text-align: left;
+  color: var(--fg);
+}
+
+.toolMenuItem:hover {
+  background: var(--accent-soft);
+}
+
+.toolMenuItemActive {
+  background: var(--selection-soft);
+  color: var(--selection);
 }

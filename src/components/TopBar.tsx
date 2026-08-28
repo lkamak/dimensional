@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ToolMode, UnitSystem } from "../types";
 import styles from "./TopBar.module.css";
 
@@ -28,12 +28,18 @@ type TopBarProps = {
   onClearAll: () => void;
 };
 
-const DRAW_TOOLS: { mode: ToolMode; label: string }[] = [
+const TOOL_OPTIONS: { mode: ToolMode; label: string }[] = [
+  { mode: "select", label: "Select" },
   { mode: "draw-wall", label: "Wall" },
   { mode: "draw-room", label: "Room" },
   { mode: "draw-line", label: "Line" },
   { mode: "draw-rect", label: "Rect" },
+  { mode: "calibrate", label: "Calibrate" },
 ];
+
+function toolLabel(mode: ToolMode): string {
+  return TOOL_OPTIONS.find((tool) => tool.mode === mode)?.label ?? "Tools";
+}
 
 export function TopBar({
   unitSystem,
@@ -61,6 +67,42 @@ export function TopBar({
   onClearAll,
 }: TopBarProps) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const toolMenuRef = useRef<HTMLDivElement>(null);
+  const toolMenuId = useId();
+  const [toolMenuOpen, setToolMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!hasPlan) setToolMenuOpen(false);
+  }, [hasPlan]);
+
+  useEffect(() => {
+    if (!toolMenuOpen) return;
+
+    function onPointerDown(event: PointerEvent) {
+      if (
+        toolMenuRef.current &&
+        !toolMenuRef.current.contains(event.target as Node)
+      ) {
+        setToolMenuOpen(false);
+      }
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setToolMenuOpen(false);
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [toolMenuOpen]);
+
+  function chooseTool(mode: ToolMode) {
+    if (mode !== toolMode) onToolModeChange(mode);
+    setToolMenuOpen(false);
+  }
 
   function handleFile(file: File | undefined) {
     if (!file || !file.type.startsWith("image/")) return;
@@ -115,36 +157,41 @@ export function TopBar({
           <>
             <div className={styles.divider} />
 
-            <button
-              type="button"
-              className={`btn btn-ghost ${toolMode === "select" ? "btn-active" : ""}`}
-              onClick={() => onToolModeChange("select")}
-            >
-              Select
-            </button>
-
-            {DRAW_TOOLS.map(({ mode, label }) => (
+            <div className={styles.toolMenu} ref={toolMenuRef}>
               <button
-                key={mode}
                 type="button"
-                className={`btn btn-ghost ${toolMode === mode ? "btn-active" : ""}`}
-                onClick={() => onToolModeChange(mode)}
+                className={`btn btn-ghost ${toolMenuOpen ? "btn-active" : ""}`}
+                aria-haspopup="menu"
+                aria-expanded={toolMenuOpen}
+                aria-controls={toolMenuId}
+                onClick={() => setToolMenuOpen((open) => !open)}
               >
-                {label}
+                {toolLabel(toolMode)}
+                <span className={styles.caret} aria-hidden="true" />
               </button>
-            ))}
-
-            <button
-              type="button"
-              className={`btn btn-ghost ${toolMode === "calibrate" ? "btn-active" : ""}`}
-              onClick={() =>
-                onToolModeChange(
-                  toolMode === "calibrate" ? "select" : "calibrate",
-                )
-              }
-            >
-              Calibrate
-            </button>
+              {toolMenuOpen && (
+                <div
+                  id={toolMenuId}
+                  className={styles.toolMenuList}
+                  role="menu"
+                  aria-label="Drawing tools"
+                >
+                  {TOOL_OPTIONS.map(({ mode, label }) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      role="menuitem"
+                      className={`${styles.toolMenuItem} ${
+                        toolMode === mode ? styles.toolMenuItemActive : ""
+                      }`}
+                      onClick={() => chooseTool(mode)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {hasImage && (
               <>
