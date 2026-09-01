@@ -122,6 +122,7 @@ export function CatalogRail({
               id="new-furniture-label"
               type="text"
               autoFocus
+              autoComplete="off"
               maxLength={80}
               placeholder="e.g. Sideboard"
               value={draft.label}
