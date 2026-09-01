@@ -34,11 +34,17 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: #fff;
+}
+
+.form :global(.field input),
+.form :global(.field select) {
+  width: 100%;
+  min-width: 0;
 }
 
 .formActions {

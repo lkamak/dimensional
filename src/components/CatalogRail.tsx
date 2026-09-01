@@ -149,43 +149,41 @@ export function CatalogRail({
               ))}
             </select>
           </div>
-          <div className="field-row">
-            <div className="field">
-              <label htmlFor="new-furniture-width">Width ({label})</label>
-              <input
-                id="new-furniture-width"
-                type="number"
-                min={1}
-                step={unitSystem === "metric" ? 1 : 0.5}
-                value={inchesToDisplayValue(draft.widthIn, unitSystem)}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  if (!Number.isFinite(v) || v <= 0) return;
-                  setDraft((prev) => ({
-                    ...prev,
-                    widthIn: displayValueToInches(v, unitSystem),
-                  }));
-                }}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="new-furniture-depth">Depth ({label})</label>
-              <input
-                id="new-furniture-depth"
-                type="number"
-                min={1}
-                step={unitSystem === "metric" ? 1 : 0.5}
-                value={inchesToDisplayValue(draft.depthIn, unitSystem)}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  if (!Number.isFinite(v) || v <= 0) return;
-                  setDraft((prev) => ({
-                    ...prev,
-                    depthIn: displayValueToInches(v, unitSystem),
-                  }));
-                }}
-              />
-            </div>
+          <div className="field">
+            <label htmlFor="new-furniture-width">Width ({label})</label>
+            <input
+              id="new-furniture-width"
+              type="number"
+              min={1}
+              step={unitSystem === "metric" ? 1 : 0.5}
+              value={inchesToDisplayValue(draft.widthIn, unitSystem)}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (!Number.isFinite(v) || v <= 0) return;
+                setDraft((prev) => ({
+                  ...prev,
+                  widthIn: displayValueToInches(v, unitSystem),
+                }));
+              }}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="new-furniture-depth">Depth ({label})</label>
+            <input
+              id="new-furniture-depth"
+              type="number"
+              min={1}
+              step={unitSystem === "metric" ? 1 : 0.5}
+              value={inchesToDisplayValue(draft.depthIn, unitSystem)}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (!Number.isFinite(v) || v <= 0) return;
+                setDraft((prev) => ({
+                  ...prev,
+                  depthIn: displayValueToInches(v, unitSystem),
+                }));
+              }}
+            />
           </div>
           <div className={styles.formActions}>
             <button
