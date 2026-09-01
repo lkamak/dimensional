@@ -12,10 +12,12 @@ import {
   createBlankPlanState,
   deleteSavedPlan,
   listSavedPlans,
+  loadCustomCatalog,
   loadSavedPlan,
   loadSessionSnapshot,
   planStateWithoutFurniture,
   planStatesEqual,
+  saveCustomCatalog,
   savePlanToLibrary,
   saveSessionSnapshot,
 } from "./storage";
@@ -86,6 +88,7 @@ export default function App() {
   const [libraryModal, setLibraryModal] = useState<LibraryModalMode>(null);
   const [pendingAction, setPendingAction] = useState<"open" | null>(null);
   const [storageError, setStorageError] = useState<StorageError | null>(null);
+  const [customCatalog, setCustomCatalog] = useState(loadCustomCatalog);
   const [isConverting, setIsConverting] = useState(false);
   const [conversionPreview, setConversionPreview] =
     useState<ConversionPreview | null>(null);
@@ -329,6 +332,30 @@ export default function App() {
     setPendingLinePx(null);
     cancelConversion();
   }, [plan.unitSystem, cancelConversion]);
+
+  const handleCreateFurniture = useCallback((preset: CatalogPreset) => {
+    setCustomCatalog((prev) => {
+      const next = [...prev, { ...preset, id: createId() }];
+      const result = saveCustomCatalog(next);
+      if (!result.ok) {
+        setStorageError(result.error);
+        return prev;
+      }
+      return next;
+    });
+  }, []);
+
+  const handleDeleteCustomFurniture = useCallback((id: string) => {
+    setCustomCatalog((prev) => {
+      const next = prev.filter((preset) => preset.id !== id);
+      const result = saveCustomCatalog(next);
+      if (!result.ok) {
+        setStorageError(result.error);
+        return prev;
+      }
+      return next;
+    });
+  }, []);
 
   const handlePlace = useCallback(
     (preset: CatalogPreset) => {
@@ -580,7 +607,10 @@ export default function App() {
         <CatalogRail
           unitSystem={plan.unitSystem}
           canPlace={canPlace}
+          customPresets={customCatalog}
           onPlace={handlePlace}
+          onCreate={handleCreateFurniture}
+          onDeleteCustom={handleDeleteCustomFurniture}
         />
 
         <div className="canvas-area">

@@ -17,6 +17,62 @@
   color: var(--fg-subtle);
 }
 
+.section {
+  margin: 4px 0 0;
+  padding: 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+.createToggle {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.customRow {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.customRow .item {
+  flex: 1;
+  min-width: 0;
+}
+
+.remove {
+  flex-shrink: 0;
+  width: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--danger);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.remove:hover {
+  background: var(--danger-soft);
+}
+
 .list {
   display: flex;
   flex-direction: column;

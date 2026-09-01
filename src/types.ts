@@ -1,13 +1,23 @@
 export type UnitSystem = "imperial" | "metric";
 
-export type FurnitureKind =
-  | "couch"
-  | "tv_console"
-  | "desk"
-  | "bed"
-  | "chair"
-  | "table"
-  | "custom";
+export const FURNITURE_KINDS = [
+  "couch",
+  "tv_console",
+  "desk",
+  "bed",
+  "chair",
+  "table",
+  "custom",
+] as const;
+
+export type FurnitureKind = (typeof FURNITURE_KINDS)[number];
+
+export function isFurnitureKind(value: unknown): value is FurnitureKind {
+  return (
+    typeof value === "string" &&
+    (FURNITURE_KINDS as readonly string[]).includes(value)
+  );
+}
 
 export type FurnitureItem = {
   id: string;
@@ -82,6 +92,10 @@ export type CatalogPreset = {
   label: string;
   widthIn: number;
   depthIn: number;
+};
+
+export type CustomCatalogPreset = CatalogPreset & {
+  id: string;
 };
 
 export type ToolMode =
