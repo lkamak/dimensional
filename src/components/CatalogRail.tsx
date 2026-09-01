@@ -156,7 +156,7 @@ export function CatalogRail({
               id="new-furniture-width"
               type="number"
               min={1}
-              step={unitSystem === "metric" ? 1 : 0.5}
+              step={unitSystem === "metric" ? 0.1 : 0.5}
               value={inchesToDisplayValue(draft.widthIn, unitSystem)}
               onChange={(e) => {
                 const v = Number(e.target.value);
@@ -174,7 +174,7 @@ export function CatalogRail({
               id="new-furniture-depth"
               type="number"
               min={1}
-              step={unitSystem === "metric" ? 1 : 0.5}
+              step={unitSystem === "metric" ? 0.1 : 0.5}
               value={inchesToDisplayValue(draft.depthIn, unitSystem)}
               onChange={(e) => {
                 const v = Number(e.target.value);
