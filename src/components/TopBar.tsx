@@ -109,6 +109,7 @@ function TopBarMenu({
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        event.stopPropagation();
         onClose();
       }
     }
