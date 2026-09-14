@@ -326,6 +326,14 @@ export function PlanCanvas({
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === "Space") {
+        if (
+          e.target instanceof HTMLInputElement ||
+          e.target instanceof HTMLTextAreaElement ||
+          e.target instanceof HTMLSelectElement ||
+          e.target instanceof HTMLButtonElement
+        ) {
+          return;
+        }
         e.preventDefault();
         setSpaceDown(true);
       }
