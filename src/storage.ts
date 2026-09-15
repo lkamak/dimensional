@@ -1,4 +1,6 @@
+import { parseCustomCatalog } from "./catalog";
 import type {
+  CustomCatalogPreset,
   DrawElement,
   PlanState,
   SavedPlan,
@@ -14,6 +16,7 @@ const LEGACY_KEY = "dimensional.plan.v1";
 const PRE_LIBRARY_KEY = "dimensional.plan.v2";
 const SESSION_KEY = "dimensional.session.v2";
 const LIBRARY_INDEX_KEY = "dimensional.library.index.v2";
+const CUSTOM_CATALOG_KEY = "dimensional.catalog.custom.v1";
 const planEntryKey = (id: string) => `dimensional.library.plan.${id}.v2`;
 
 type LoadedSessionSnapshot = SessionSnapshot & {
@@ -341,6 +344,22 @@ export function deleteSavedPlan(id: string): StorageResult {
 
   tryRemoveItem(planEntryKey(id));
   return { ok: true, value: undefined };
+}
+
+export function loadCustomCatalog(): CustomCatalogPreset[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_CATALOG_KEY);
+    if (!raw) return [];
+    return parseCustomCatalog(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomCatalog(
+  items: CustomCatalogPreset[],
+): StorageResult {
+  return trySetItem(CUSTOM_CATALOG_KEY, JSON.stringify(items));
 }
 
 export function createBlankPlanState(
