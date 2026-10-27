@@ -56,6 +56,34 @@
   color: var(--fg-muted);
 }
 
+.customSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.customToggle {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.customToggleOpen {
+  background: var(--accent-soft);
+}
+
+.customForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
 .hint {
   margin: 4px;
   font-size: 12px;
