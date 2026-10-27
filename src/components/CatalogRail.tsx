@@ -61,7 +61,7 @@ export function CatalogRail({ unitSystem, canPlace, onPlace }: CatalogRailProps)
         <button
           type="button"
           className={`btn btn-ghost ${styles.customToggle} ${customOpen ? styles.customToggleOpen : ""}`}
-          disabled={!canPlace}
+          disabled={!canPlace && !customOpen}
           aria-expanded={customOpen}
           onClick={() => setCustomOpen((open) => !open)}
         >

@@ -44,7 +44,9 @@ export function Menu({
     }
 
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onOpenChange(false);
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      onOpenChange(false);
     }
 
     document.addEventListener("pointerdown", onPointerDown);
