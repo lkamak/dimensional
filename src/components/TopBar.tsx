@@ -1,5 +1,6 @@
-import { useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { ToolMode, UnitSystem } from "../types";
+import { Menu, type MenuItem } from "./Menu";
 import styles from "./TopBar.module.css";
 
 type TopBarProps = {
@@ -28,12 +29,15 @@ type TopBarProps = {
   onClearAll: () => void;
 };
 
-const DRAW_TOOLS: { mode: ToolMode; label: string }[] = [
+const TOOLS: { mode: ToolMode; label: string }[] = [
+  { mode: "select", label: "Select" },
   { mode: "draw-wall", label: "Wall" },
   { mode: "draw-room", label: "Room" },
   { mode: "draw-line", label: "Line" },
   { mode: "draw-rect", label: "Rect" },
 ];
+
+type OpenMenu = "file" | "tool" | "view" | "edit" | null;
 
 export function TopBar({
   unitSystem,
@@ -61,6 +65,11 @@ export function TopBar({
   onClearAll,
 }: TopBarProps) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
+
+  const handleMenuChange = useCallback((id: OpenMenu) => {
+    return (nextOpen: boolean) => setOpenMenu(nextOpen ? id : null);
+  }, []);
 
   function handleFile(file: File | undefined) {
     if (!file || !file.type.startsWith("image/")) return;
@@ -76,6 +85,96 @@ export function TopBar({
     : isDirty
       ? "Unsaved plan *"
       : null;
+
+  const fileItems: MenuItem[] = [
+    {
+      type: "item",
+      label: "Upload plan",
+      onSelect: () => fileRef.current?.click(),
+    },
+    { type: "item", label: "Draw plan", onSelect: onDrawPlan },
+    { type: "separator" },
+    { type: "item", label: "Open…", onSelect: onOpen },
+    {
+      type: "item",
+      label: "Save",
+      disabled: !hasPlan || !isDirty,
+      onSelect: onSave,
+    },
+    {
+      type: "item",
+      label: "Save as…",
+      disabled: !hasPlan,
+      onSelect: onSaveAs,
+    },
+    {
+      type: "item",
+      label: "Save clean copy…",
+      disabled: !hasPlan,
+      title: "Save the plan, scale, and drawing without furniture",
+      onSelect: onSaveCleanAs,
+    },
+  ];
+
+  const toolLabel =
+    TOOLS.find(({ mode }) => mode === toolMode)?.label ?? "Tool";
+
+  const toolItems: MenuItem[] = TOOLS.map(({ mode, label }) => ({
+    type: "item",
+    label,
+    active: toolMode === mode,
+    onSelect: () => onToolModeChange(mode),
+  }));
+  toolItems.splice(1, 0, { type: "separator" });
+
+  const viewItems: MenuItem[] = [
+    {
+      type: "item",
+      label: "Calibrate scale",
+      active: toolMode === "calibrate",
+      onSelect: () =>
+        onToolModeChange(toolMode === "calibrate" ? "select" : "calibrate"),
+    },
+    ...(hasImage
+      ? ([
+          {
+            type: "item",
+            label: isConverting ? "Converting…" : "Convert to drawing",
+            disabled: isConverting,
+            onSelect: onConvert,
+          },
+          {
+            type: "item",
+            label: imageUnderlayVisible ? "Hide underlay" : "Show underlay",
+            active: !imageUnderlayVisible,
+            onSelect: onToggleUnderlay,
+          },
+        ] satisfies MenuItem[])
+      : []),
+  ];
+
+  const editItems: MenuItem[] = [
+    {
+      type: "item",
+      label: "Clear furniture",
+      disabled: !hasPlan,
+      onSelect: onClearLayout,
+    },
+    {
+      type: "item",
+      label: "Clear walls",
+      disabled: !hasWalls,
+      onSelect: onClearWalls,
+    },
+    { type: "separator" },
+    {
+      type: "item",
+      label: "Reset plan",
+      danger: true,
+      disabled: !hasPlan,
+      onSelect: onClearAll,
+    },
+  ];
 
   return (
     <header className={styles.topbar}>
@@ -100,72 +199,33 @@ export function TopBar({
             e.target.value = "";
           }}
         />
-        <button
-          type="button"
-          className="btn btn-ghost"
-          onClick={() => fileRef.current?.click()}
-        >
-          Upload plan
-        </button>
-        <button type="button" className="btn btn-ghost" onClick={onDrawPlan}>
-          Draw plan
-        </button>
+
+        <Menu
+          id="file"
+          label="File"
+          open={openMenu === "file"}
+          onOpenChange={handleMenuChange("file")}
+          items={fileItems}
+        />
 
         {hasPlan && (
-          <>
-            <div className={styles.divider} />
+          <Menu
+            id="tool"
+            label={toolLabel}
+            open={openMenu === "tool"}
+            onOpenChange={handleMenuChange("tool")}
+            items={toolItems}
+          />
+        )}
 
-            <button
-              type="button"
-              className={`btn btn-ghost ${toolMode === "select" ? "btn-active" : ""}`}
-              onClick={() => onToolModeChange("select")}
-            >
-              Select
-            </button>
-
-            {DRAW_TOOLS.map(({ mode, label }) => (
-              <button
-                key={mode}
-                type="button"
-                className={`btn btn-ghost ${toolMode === mode ? "btn-active" : ""}`}
-                onClick={() => onToolModeChange(mode)}
-              >
-                {label}
-              </button>
-            ))}
-
-            <button
-              type="button"
-              className={`btn btn-ghost ${toolMode === "calibrate" ? "btn-active" : ""}`}
-              onClick={() =>
-                onToolModeChange(
-                  toolMode === "calibrate" ? "select" : "calibrate",
-                )
-              }
-            >
-              Calibrate
-            </button>
-
-            {hasImage && (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  disabled={isConverting}
-                  onClick={onConvert}
-                >
-                  {isConverting ? "Converting…" : "Convert to drawing"}
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-ghost ${imageUnderlayVisible ? "" : "btn-active"}`}
-                  onClick={onToggleUnderlay}
-                >
-                  {imageUnderlayVisible ? "Hide underlay" : "Show underlay"}
-                </button>
-              </>
-            )}
-          </>
+        {hasPlan && (
+          <Menu
+            id="view"
+            label="View"
+            open={openMenu === "view"}
+            onOpenChange={handleMenuChange("view")}
+            items={viewItems}
+          />
         )}
 
         <span className={styles.scalePill}>
@@ -176,41 +236,6 @@ export function TopBar({
               : "No plan loaded"}
           {hasWalls ? " · walls editable" : ""}
         </span>
-
-        <div className={styles.divider} />
-
-        <button
-          type="button"
-          className="btn btn-ghost"
-          onClick={onOpen}
-        >
-          Open
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={!hasPlan || !isDirty}
-          onClick={onSave}
-        >
-          Save
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={!hasPlan}
-          onClick={onSaveAs}
-        >
-          Save as
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={!hasPlan}
-          onClick={onSaveCleanAs}
-          title="Save the plan, scale, and drawing without furniture"
-        >
-          Save clean copy
-        </button>
 
         <div className={styles.divider} />
 
@@ -231,32 +256,14 @@ export function TopBar({
           </button>
         </div>
 
-        <div className={styles.divider} />
-
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={!hasPlan}
-          onClick={onClearLayout}
-        >
-          Clear furniture
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={!hasWalls}
-          onClick={onClearWalls}
-        >
-          Clear walls
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost btn-danger"
-          disabled={!hasPlan}
-          onClick={onClearAll}
-        >
-          Reset
-        </button>
+        <Menu
+          id="edit"
+          label="Edit"
+          align="end"
+          open={openMenu === "edit"}
+          onOpenChange={handleMenuChange("edit")}
+          items={editItems}
+        />
       </div>
     </header>
   );
