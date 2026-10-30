@@ -12,9 +12,11 @@ import {
   createBlankPlanState,
   deleteSavedPlan,
   listSavedPlans,
+  loadCustomCatalog,
   loadSavedPlan,
   loadSessionSnapshot,
   planStateWithoutFurniture,
+  saveCustomCatalog,
   planStatesEqual,
   savePlanToLibrary,
   saveSessionSnapshot,
@@ -22,6 +24,7 @@ import {
 import type {
   CalibrationDraft,
   CatalogPreset,
+  CustomCatalogPreset,
   DrawElement,
   FurnitureItem,
   PlanState,
@@ -83,6 +86,8 @@ export default function App() {
     height: number;
   } | null>(null);
   const [savedPlans, setSavedPlans] = useState(() => listSavedPlans());
+  const [customPresets, setCustomPresets] = useState(() => loadCustomCatalog());
+  const customCatalogHydrated = useRef(false);
   const [libraryModal, setLibraryModal] = useState<LibraryModalMode>(null);
   const [pendingAction, setPendingAction] = useState<"open" | null>(null);
   const [storageError, setStorageError] = useState<StorageError | null>(null);
@@ -112,6 +117,17 @@ export default function App() {
   const planActive = hasActivePlan(plan);
   const canPlace = Boolean(planActive && plan.pixelsPerInch);
   const wallCount = plan.elements.filter((el) => el.kind === "wall").length;
+
+  useEffect(() => {
+    if (!customCatalogHydrated.current) {
+      customCatalogHydrated.current = true;
+      return;
+    }
+    const result = saveCustomCatalog(customPresets);
+    if (!result.ok) {
+      setStorageError(result.error);
+    }
+  }, [customPresets]);
 
   useEffect(() => {
     if (!sessionHydrated.current) {
@@ -356,6 +372,30 @@ export default function App() {
     [plan, canvasSize],
   );
 
+  const handleCreateCustom = useCallback(
+    (input: { label: string; widthIn: number; depthIn: number }) => {
+      const preset: CustomCatalogPreset = {
+        id: createId(),
+        kind: "custom",
+        label: input.label,
+        widthIn: input.widthIn,
+        depthIn: input.depthIn,
+      };
+      setCustomPresets((prev) => [preset, ...prev]);
+      handlePlace({
+        kind: "custom",
+        label: preset.label,
+        widthIn: preset.widthIn,
+        depthIn: preset.depthIn,
+      });
+    },
+    [handlePlace],
+  );
+
+  const handleDeleteCustom = useCallback((id: string) => {
+    setCustomPresets((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
   const handleItemChange = useCallback(
     (id: string, patch: Partial<FurnitureItem>) => {
       setPlan((prev) => ({
@@ -580,7 +620,10 @@ export default function App() {
         <CatalogRail
           unitSystem={plan.unitSystem}
           canPlace={canPlace}
+          customPresets={customPresets}
           onPlace={handlePlace}
+          onCreateCustom={handleCreateCustom}
+          onDeleteCustom={handleDeleteCustom}
         />
 
         <div className="canvas-area">

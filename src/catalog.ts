@@ -10,5 +10,4 @@ export const CATALOG: CatalogPreset[] = [
   { kind: "chair", label: "Armchair", widthIn: 34, depthIn: 34 },
   { kind: "table", label: "Dining table", widthIn: 72, depthIn: 36 },
   { kind: "table", label: "Coffee table", widthIn: 48, depthIn: 24 },
-  { kind: "custom", label: "Custom", widthIn: 36, depthIn: 24 },
 ];
