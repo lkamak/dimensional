@@ -5,23 +5,32 @@ import { CatalogRail } from "./components/CatalogRail";
 import { Inspector } from "./components/Inspector";
 import { EmptyState } from "./components/EmptyState";
 import { PlanCanvas } from "./components/PlanCanvas";
+import { NewShapeModal } from "./components/NewShapeModal";
 import { PlanLibraryModal } from "./components/PlanLibraryModal";
+import {
+  draftToShape,
+  type CustomShapeDraft,
+} from "./furnitureShape";
 import {
   clearLegacyPlanState,
   DEFAULT_STATE,
   createBlankPlanState,
+  deleteCustomFurnitureEntry,
   deleteSavedPlan,
+  listCustomFurniture,
   listSavedPlans,
   loadSavedPlan,
   loadSessionSnapshot,
   planStateWithoutFurniture,
   planStatesEqual,
+  saveCustomFurnitureEntry,
   savePlanToLibrary,
   saveSessionSnapshot,
 } from "./storage";
 import type {
   CalibrationDraft,
   CatalogPreset,
+  CustomFurnitureEntry,
   DrawElement,
   FurnitureItem,
   PlanState,
@@ -89,6 +98,10 @@ export default function App() {
   const [isConverting, setIsConverting] = useState(false);
   const [conversionPreview, setConversionPreview] =
     useState<ConversionPreview | null>(null);
+  const [customFurniture, setCustomFurniture] = useState(() =>
+    listCustomFurniture(),
+  );
+  const [newShapeOpen, setNewShapeOpen] = useState(false);
   const conversionRequestId = useRef(0);
   const sessionHydrated = useRef(false);
   const legacyMigrationSnapshot = useRef<SessionSnapshot | null>(
@@ -186,6 +199,43 @@ export default function App() {
   const refreshSavedPlans = useCallback(() => {
     setSavedPlans(listSavedPlans());
   }, []);
+
+  const refreshCustomFurniture = useCallback(() => {
+    setCustomFurniture(listCustomFurniture());
+  }, []);
+
+  const addFurnitureToPlan = useCallback(
+    (spec: {
+      label: string;
+      widthIn: number;
+      depthIn: number;
+      shape?: FurnitureItem["shape"];
+    }) => {
+      if (!hasActivePlan(plan) || !plan.pixelsPerInch) return null;
+
+      const cx = canvasSize ? canvasSize.width / 2 : 400;
+      const cy = canvasSize ? canvasSize.height / 2 : 300;
+      const offset = plan.items.length * 16;
+
+      const item: FurnitureItem = {
+        id: createId(),
+        kind: "custom",
+        label: spec.label,
+        widthIn: spec.widthIn,
+        depthIn: spec.depthIn,
+        shape: spec.shape,
+        x: cx + offset,
+        y: cy + offset,
+        rotation: 0,
+      };
+      setPlan((prev) => ({ ...prev, items: [...prev.items, item] }));
+      setSelectedId(item.id);
+      setSelectedElementId(null);
+      setToolMode("select");
+      return item;
+    },
+    [plan, canvasSize],
+  );
 
   const applyLoadedPlan = useCallback(
     (state: PlanState, id: string | null, name: string | null) => {
@@ -332,28 +382,99 @@ export default function App() {
 
   const handlePlace = useCallback(
     (preset: CatalogPreset) => {
-      if (!hasActivePlan(plan) || !plan.pixelsPerInch) return;
-
-      const cx = canvasSize ? canvasSize.width / 2 : 400;
-      const cy = canvasSize ? canvasSize.height / 2 : 300;
-      const offset = plan.items.length * 16;
-
-      const item: FurnitureItem = {
-        id: createId(),
-        kind: preset.kind,
+      addFurnitureToPlan({
         label: preset.label,
         widthIn: preset.widthIn,
         depthIn: preset.depthIn,
-        x: cx + offset,
-        y: cy + offset,
-        rotation: 0,
-      };
-      setPlan((prev) => ({ ...prev, items: [...prev.items, item] }));
-      setSelectedId(item.id);
-      setSelectedElementId(null);
-      setToolMode("select");
+        shape: { type: "rect" },
+      });
     },
-    [plan, canvasSize],
+    [addFurnitureToPlan],
+  );
+
+  const handlePlaceCustom = useCallback(
+    (entry: CustomFurnitureEntry) => {
+      addFurnitureToPlan({
+        label: entry.label,
+        widthIn: entry.widthIn,
+        depthIn: entry.depthIn,
+        shape: entry.shape,
+      });
+    },
+    [addFurnitureToPlan],
+  );
+
+  const persistCustomDraft = useCallback(
+    (draft: CustomShapeDraft) => {
+      const result = saveCustomFurnitureEntry({
+        id: createId(),
+        label: draft.label.trim(),
+        widthIn: draft.widthIn,
+        depthIn: draft.depthIn,
+        shape: draftToShape(draft),
+      });
+      if (!result.ok) {
+        setStorageError(result.error);
+        return null;
+      }
+      refreshCustomFurniture();
+      return result.value;
+    },
+    [refreshCustomFurniture],
+  );
+
+  const handleSaveCustomDraft = useCallback(
+    (draft: CustomShapeDraft) => {
+      if (persistCustomDraft(draft)) {
+        setNewShapeOpen(false);
+      }
+    },
+    [persistCustomDraft],
+  );
+
+  const handleSaveCustomDraftAndPlace = useCallback(
+    (draft: CustomShapeDraft) => {
+      const entry = persistCustomDraft(draft);
+      if (!entry) return;
+      setNewShapeOpen(false);
+      addFurnitureToPlan({
+        label: entry.label,
+        widthIn: entry.widthIn,
+        depthIn: entry.depthIn,
+        shape: entry.shape,
+      });
+    },
+    [persistCustomDraft, addFurnitureToPlan],
+  );
+
+  const handleDeleteCustomEntry = useCallback(
+    (id: string) => {
+      const result = deleteCustomFurnitureEntry(id);
+      if (!result.ok) {
+        setStorageError(result.error);
+        return;
+      }
+      refreshCustomFurniture();
+    },
+    [refreshCustomFurniture],
+  );
+
+  const handleSaveItemToRail = useCallback(
+    (item: FurnitureItem) => {
+      const result = saveCustomFurnitureEntry({
+        id: createId(),
+        label: item.label,
+        widthIn: item.widthIn,
+        depthIn: item.depthIn,
+        shape: item.shape ?? { type: "rect" },
+      });
+      if (!result.ok) {
+        setStorageError(result.error);
+        return;
+      }
+      refreshCustomFurniture();
+    },
+    [refreshCustomFurniture],
   );
 
   const handleItemChange = useCallback(
@@ -580,7 +701,11 @@ export default function App() {
         <CatalogRail
           unitSystem={plan.unitSystem}
           canPlace={canPlace}
+          customEntries={customFurniture}
           onPlace={handlePlace}
+          onPlaceCustom={handlePlaceCustom}
+          onNewShape={() => setNewShapeOpen(true)}
+          onDeleteCustom={handleDeleteCustomEntry}
         />
 
         <div className="canvas-area">
@@ -642,6 +767,7 @@ export default function App() {
           onDelete={handleDelete}
           onRotate={handleRotate}
           onDeleteElement={handleDeleteElement}
+          onSaveToRail={handleSaveItemToRail}
         />
       </div>
 
@@ -798,6 +924,16 @@ export default function App() {
             setLibraryModal(null);
             setPendingAction(null);
           }}
+        />
+      )}
+
+      {newShapeOpen && (
+        <NewShapeModal
+          unitSystem={plan.unitSystem}
+          canPlace={canPlace}
+          onSave={handleSaveCustomDraft}
+          onSaveAndPlace={handleSaveCustomDraftAndPlace}
+          onClose={() => setNewShapeOpen(false)}
         />
       )}
     </div>

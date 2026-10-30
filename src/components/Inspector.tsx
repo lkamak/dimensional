@@ -1,3 +1,8 @@
+import {
+  effectiveShape,
+  normalizeFurnitureShape,
+  shapeTemplateLabel,
+} from "../furnitureShape";
 import type { DrawElement, FurnitureItem, UnitSystem } from "../types";
 import {
   displayValueToInches,
@@ -16,6 +21,7 @@ type InspectorProps = {
   onDelete: (id: string) => void;
   onRotate: (id: string, delta: number) => void;
   onDeleteElement: (id: string) => void;
+  onSaveToRail?: (item: FurnitureItem) => void;
 };
 
 function elementLengthPx(el: DrawElement): number {
@@ -44,6 +50,7 @@ export function Inspector({
   onDelete,
   onRotate,
   onDeleteElement,
+  onSaveToRail,
 }: InspectorProps) {
   if (element && !item) {
     const lengthPx = elementLengthPx(element);
@@ -90,12 +97,25 @@ export function Inspector({
 
   const widthDisplay = inchesToDisplayValue(item.widthIn, unitSystem);
   const depthDisplay = inchesToDisplayValue(item.depthIn, unitSystem);
-  const label = unitLabel(unitSystem);
+  const dimLabel = unitLabel(unitSystem);
+  const shape = effectiveShape(item);
+
+  const patchWithShape = (patch: Partial<FurnitureItem>) => {
+    const merged = { ...item, ...patch };
+    const nextShape = normalizeFurnitureShape(
+      merged.shape,
+      merged.widthIn,
+      merged.depthIn,
+    );
+    onChange(item.id, { ...patch, shape: nextShape });
+  };
 
   return (
     <aside className={styles.inspector}>
       <h2 className={styles.heading}>{item.label}</h2>
-      <p className={styles.sub}>{item.kind.replace("_", " ")}</p>
+      <p className={styles.sub}>
+        {item.kind.replace("_", " ")} · {shapeTemplateLabel(shape)}
+      </p>
 
       <div className="field">
         <label htmlFor="item-label">Label</label>
@@ -108,7 +128,7 @@ export function Inspector({
 
       <div className="field-row">
         <div className="field">
-          <label htmlFor="item-width">Width ({label})</label>
+          <label htmlFor="item-width">Width ({dimLabel})</label>
           <input
             id="item-width"
             type="number"
@@ -118,14 +138,14 @@ export function Inspector({
             onChange={(e) => {
               const v = Number(e.target.value);
               if (!Number.isFinite(v) || v <= 0) return;
-              onChange(item.id, {
+              patchWithShape({
                 widthIn: displayValueToInches(v, unitSystem),
               });
             }}
           />
         </div>
         <div className="field">
-          <label htmlFor="item-depth">Depth ({label})</label>
+          <label htmlFor="item-depth">Depth ({dimLabel})</label>
           <input
             id="item-depth"
             type="number"
@@ -135,13 +155,55 @@ export function Inspector({
             onChange={(e) => {
               const v = Number(e.target.value);
               if (!Number.isFinite(v) || v <= 0) return;
-              onChange(item.id, {
+              patchWithShape({
                 depthIn: displayValueToInches(v, unitSystem),
               });
             }}
           />
         </div>
       </div>
+
+      {shape.type === "l" && (
+        <>
+          <div className="field">
+            <label htmlFor="item-thickness">Leg thickness ({dimLabel})</label>
+            <input
+              id="item-thickness"
+              type="number"
+              min={0.1}
+              step={unitSystem === "metric" ? 1 : 0.5}
+              value={inchesToDisplayValue(shape.thicknessIn, unitSystem)}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (!Number.isFinite(v) || v <= 0) return;
+                patchWithShape({
+                  shape: {
+                    type: "l",
+                    thicknessIn: displayValueToInches(v, unitSystem),
+                    flip: shape.flip,
+                  },
+                });
+              }}
+            />
+          </div>
+          <label className={styles.flipRow}>
+            <input
+              type="checkbox"
+              checked={shape.flip}
+              onChange={(e) =>
+                patchWithShape({
+                  shape: {
+                    type: "l",
+                    thicknessIn: shape.thicknessIn,
+                    flip: e.target.checked,
+                  },
+                })
+              }
+            />
+            Return on the right (flipped)
+          </label>
+        </>
+      )}
 
       <div className="field">
         <label htmlFor="item-rotation">Rotation (°)</label>
@@ -159,6 +221,15 @@ export function Inspector({
       </div>
 
       <div className={styles.actions}>
+        {onSaveToRail && (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => onSaveToRail(item)}
+          >
+            Save to rail
+          </button>
+        )}
         <button
           type="button"
           className="btn btn-ghost"

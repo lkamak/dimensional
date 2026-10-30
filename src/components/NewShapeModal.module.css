@@ -1,0 +1,64 @@
+.modal {
+  width: min(480px, calc(100vw - 32px));
+}
+
+.templateRow {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.template,
+.templateActive {
+  flex: 1;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 12px;
+}
+
+.templateActive {
+  background: var(--selection-soft);
+  border-color: rgba(61, 90, 91, 0.28);
+  color: var(--selection);
+}
+
+.body {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.previewWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.flipRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.validation {
+  margin: 0;
+  font-size: 12px;
+  color: var(--danger);
+}
