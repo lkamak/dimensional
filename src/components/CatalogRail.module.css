@@ -62,3 +62,51 @@
   line-height: 1.4;
   color: var(--fg-subtle);
 }
+
+.createForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 4px 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.createForm :global(.createSubmit) {
+  width: 100%;
+}
+
+.formError {
+  margin: 0;
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.itemRow {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.itemRow .item {
+  flex: 1;
+  min-width: 0;
+}
+
+.removePreset {
+  flex-shrink: 0;
+  width: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--fg-muted);
+}
+
+.removePreset:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: var(--border);
+}

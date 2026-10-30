@@ -1,4 +1,5 @@
 import type {
+  CustomCatalogPreset,
   DrawElement,
   PlanState,
   SavedPlan,
@@ -14,6 +15,7 @@ const LEGACY_KEY = "dimensional.plan.v1";
 const PRE_LIBRARY_KEY = "dimensional.plan.v2";
 const SESSION_KEY = "dimensional.session.v2";
 const LIBRARY_INDEX_KEY = "dimensional.library.index.v2";
+const CUSTOM_CATALOG_KEY = "dimensional.catalog.custom.v1";
 const planEntryKey = (id: string) => `dimensional.library.plan.${id}.v2`;
 
 type LoadedSessionSnapshot = SessionSnapshot & {
@@ -352,4 +354,47 @@ export function createBlankPlanState(
     canvasHeight: DEFAULT_CANVAS_HEIGHT,
     unitSystem,
   };
+}
+
+function parseCustomCatalog(raw: unknown): CustomCatalogPreset[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CustomCatalogPreset[] = [];
+  for (const entry of raw) {
+    if (
+      entry == null ||
+      typeof entry !== "object" ||
+      typeof (entry as CustomCatalogPreset).id !== "string" ||
+      typeof (entry as CustomCatalogPreset).label !== "string" ||
+      typeof (entry as CustomCatalogPreset).widthIn !== "number" ||
+      typeof (entry as CustomCatalogPreset).depthIn !== "number"
+    ) {
+      continue;
+    }
+    const e = entry as CustomCatalogPreset;
+    if (e.widthIn <= 0 || e.depthIn <= 0) continue;
+    out.push({
+      id: e.id,
+      kind: "custom",
+      label: e.label.trim() || "Custom",
+      widthIn: e.widthIn,
+      depthIn: e.depthIn,
+    });
+  }
+  return out;
+}
+
+export function loadCustomCatalog(): CustomCatalogPreset[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_CATALOG_KEY);
+    if (!raw) return [];
+    return parseCustomCatalog(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomCatalog(
+  presets: CustomCatalogPreset[],
+): StorageResult {
+  return trySetItem(CUSTOM_CATALOG_KEY, JSON.stringify(presets));
 }
