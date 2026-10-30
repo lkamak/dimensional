@@ -1,4 +1,9 @@
+import {
+  normalizeFurnitureShape,
+  parseFurnitureItems,
+} from "./furnitureShape";
 import type {
+  CustomFurnitureEntry,
   DrawElement,
   PlanState,
   SavedPlan,
@@ -14,6 +19,7 @@ const LEGACY_KEY = "dimensional.plan.v1";
 const PRE_LIBRARY_KEY = "dimensional.plan.v2";
 const SESSION_KEY = "dimensional.session.v2";
 const LIBRARY_INDEX_KEY = "dimensional.library.index.v2";
+const CUSTOM_FURNITURE_KEY = "dimensional.custom-furniture.v1";
 const planEntryKey = (id: string) => `dimensional.library.plan.${id}.v2`;
 
 type LoadedSessionSnapshot = SessionSnapshot & {
@@ -105,7 +111,7 @@ function normalizePlanState(
     pixelsPerInch:
       typeof raw.pixelsPerInch === "number" ? raw.pixelsPerInch : null,
     unitSystem: raw.unitSystem === "metric" ? "metric" : "imperial",
-    items: Array.isArray(raw.items) ? raw.items : [],
+    items: parseFurnitureItems(raw.items),
     elements,
     imageUnderlayVisible:
       typeof raw.imageUnderlayVisible === "boolean"
@@ -352,4 +358,84 @@ export function createBlankPlanState(
     canvasHeight: DEFAULT_CANVAS_HEIGHT,
     unitSystem,
   };
+}
+
+function parseCustomFurnitureEntry(
+  raw: Partial<CustomFurnitureEntry> | null | undefined,
+): CustomFurnitureEntry | null {
+  if (
+    !raw ||
+    typeof raw.id !== "string" ||
+    typeof raw.label !== "string" ||
+    typeof raw.updatedAt !== "string" ||
+    typeof raw.widthIn !== "number" ||
+    typeof raw.depthIn !== "number"
+  ) {
+    return null;
+  }
+  const widthIn = Math.max(0.01, raw.widthIn);
+  const depthIn = Math.max(0.01, raw.depthIn);
+  return {
+    id: raw.id,
+    label: raw.label.trim() || "Custom piece",
+    widthIn,
+    depthIn,
+    shape: normalizeFurnitureShape(raw.shape, widthIn, depthIn),
+    updatedAt: raw.updatedAt,
+  };
+}
+
+export function listCustomFurniture(): CustomFurnitureEntry[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_FURNITURE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as { entries?: Partial<CustomFurnitureEntry>[] };
+    if (!Array.isArray(parsed.entries)) return [];
+    return parsed.entries
+      .map((e) => parseCustomFurnitureEntry(e))
+      .filter((e): e is CustomFurnitureEntry => e != null)
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomFurnitureEntry(
+  entry: Omit<CustomFurnitureEntry, "updatedAt"> & { updatedAt?: string },
+): StorageResult<CustomFurnitureEntry> {
+  const trimmed = entry.label.trim();
+  if (!trimmed) {
+    return {
+      ok: false,
+      error: { type: "unavailable", message: "Label cannot be empty." },
+    };
+  }
+  const widthIn = Math.max(0.01, entry.widthIn);
+  const depthIn = Math.max(0.01, entry.depthIn);
+  const normalized: CustomFurnitureEntry = {
+    id: entry.id,
+    label: trimmed,
+    widthIn,
+    depthIn,
+    shape: normalizeFurnitureShape(entry.shape, widthIn, depthIn),
+    updatedAt: entry.updatedAt ?? new Date().toISOString(),
+  };
+  const next = [
+    normalized,
+    ...listCustomFurniture().filter((e) => e.id !== normalized.id),
+  ];
+  const result = trySetItem(
+    CUSTOM_FURNITURE_KEY,
+    JSON.stringify({ entries: next }),
+  );
+  if (!result.ok) return result;
+  return { ok: true, value: normalized };
+}
+
+export function deleteCustomFurnitureEntry(id: string): StorageResult {
+  const next = listCustomFurniture().filter((e) => e.id !== id);
+  return trySetItem(CUSTOM_FURNITURE_KEY, JSON.stringify({ entries: next }));
 }

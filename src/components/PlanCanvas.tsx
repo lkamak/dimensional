@@ -8,6 +8,7 @@ import {
   Text,
   Line,
   Circle,
+  Ellipse,
 } from "react-konva";
 import type Konva from "konva";
 import type {
@@ -18,6 +19,11 @@ import type {
   ToolMode,
   UnitSystem,
 } from "../types";
+import {
+  effectiveShape,
+  furnitureCollisionBoxes,
+  lShapeLegsLocal,
+} from "../furnitureShape";
 import { isDrawTool } from "../types";
 import { formatDimensions } from "../units";
 
@@ -507,24 +513,29 @@ export function PlanCanvas({
       for (let j = i + 1; j < sized.length; j++) {
         const a = sized[i];
         const b = sized[j];
-        if (
-          boxesOverlap(
-            {
-              x: a.item.x,
-              y: a.item.y,
-              w: a.w,
-              h: a.h,
-              rotation: a.item.rotation,
-            },
-            {
-              x: b.item.x,
-              y: b.item.y,
-              w: b.w,
-              h: b.h,
-              rotation: b.item.rotation,
-            },
-          )
-        ) {
+        const boxesA = furnitureCollisionBoxes(
+          a.item,
+          a.w,
+          a.h,
+          pixelsPerInch,
+        );
+        const boxesB = furnitureCollisionBoxes(
+          b.item,
+          b.w,
+          b.h,
+          pixelsPerInch,
+        );
+        let hits = false;
+        for (const boxA of boxesA) {
+          for (const boxB of boxesB) {
+            if (boxesOverlap(boxA, boxB)) {
+              hits = true;
+              break;
+            }
+          }
+          if (hits) break;
+        }
+        if (hits) {
           overlapping.add(a.item.id);
           overlapping.add(b.item.id);
         }
@@ -534,6 +545,59 @@ export function PlanCanvas({
     return sized.map(({ item, w, h }) => {
       const selected = item.id === selectedId;
       const overlaps = overlapping.has(item.id);
+      const fill = overlaps
+        ? "rgba(139, 74, 66, 0.22)"
+        : selected
+          ? "rgba(61, 90, 91, 0.22)"
+          : "rgba(92, 90, 82, 0.18)";
+      const stroke = overlaps
+        ? "#8b4a42"
+        : selected
+          ? "#3d5a5b"
+          : "rgba(42, 41, 36, 0.45)";
+      const strokeWidth = selected || overlaps ? 2 / scale : 1 / scale;
+      const shape = effectiveShape(item);
+
+      const footprint =
+        shape.type === "round" ? (
+          <Ellipse
+            x={0}
+            y={0}
+            radiusX={w / 2}
+            radiusY={h / 2}
+            fill={fill}
+            stroke={stroke}
+            strokeWidth={strokeWidth}
+          />
+        ) : shape.type === "l" ? (
+          lShapeLegsLocal(
+            w,
+            h,
+            shape.thicknessIn * pixelsPerInch,
+            shape.flip,
+          ).map((leg, idx) => (
+            <Rect
+              key={idx}
+              x={leg.x}
+              y={leg.y}
+              width={leg.w}
+              height={leg.h}
+              fill={fill}
+              stroke={stroke}
+              strokeWidth={strokeWidth}
+            />
+          ))
+        ) : (
+          <Rect
+            width={w}
+            height={h}
+            fill={fill}
+            stroke={stroke}
+            strokeWidth={strokeWidth}
+            cornerRadius={2 / scale}
+          />
+        );
+
       return (
         <Group
           key={item.id}
@@ -560,26 +624,7 @@ export function PlanCanvas({
             });
           }}
         >
-          <Rect
-            width={w}
-            height={h}
-            fill={
-              overlaps
-                ? "rgba(139, 74, 66, 0.22)"
-                : selected
-                  ? "rgba(61, 90, 91, 0.22)"
-                  : "rgba(92, 90, 82, 0.18)"
-            }
-            stroke={
-              overlaps
-                ? "#8b4a42"
-                : selected
-                  ? "#3d5a5b"
-                  : "rgba(42, 41, 36, 0.45)"
-            }
-            strokeWidth={selected || overlaps ? 2 / scale : 1 / scale}
-            cornerRadius={2 / scale}
-          />
+          {footprint}
           <Text
             text={item.label}
             width={w}

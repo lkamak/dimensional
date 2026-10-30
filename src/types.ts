@@ -9,6 +9,11 @@ export type FurnitureKind =
   | "table"
   | "custom";
 
+export type FurnitureShape =
+  | { type: "rect" }
+  | { type: "round" }
+  | { type: "l"; thicknessIn: number; flip: boolean };
+
 export type FurnitureItem = {
   id: string;
   kind: FurnitureKind;
@@ -18,6 +23,16 @@ export type FurnitureItem = {
   x: number;
   y: number;
   rotation: number;
+  shape?: FurnitureShape;
+};
+
+export type CustomFurnitureEntry = {
+  id: string;
+  label: string;
+  widthIn: number;
+  depthIn: number;
+  shape: FurnitureShape;
+  updatedAt: string;
 };
 
 export type DrawElementKind = "wall" | "room" | "line" | "rect";
